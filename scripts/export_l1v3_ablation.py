@@ -105,11 +105,14 @@ def run_metrics(run: dict[str, Any]) -> dict[str, Any]:
     ]
     routed_rows = [row for row in l1_rows if bool_value(row.get("routed_to_l2"))]
     reason_counts = Counter(str(row.get("routing_reason", "unknown")) for row in routed_rows)
+    rarity_rows = [row for row in l2_rows if row.get("planned_role") == "RARITY"]
+    rarity_recognized = [row for row in rarity_rows if row.get("verdict") == "RARITY"]
 
     return {
         "main_accuracy": safe_mean([float(row["main_task_accuracy"]) for row in round_rows]),
         "corner_accuracy": safe_mean([float(row["corner_case_accuracy"]) for row in round_rows]),
-        "rarity_recognition": rarity["l2_rarity_recall"],
+        "rarity_l2_conditional_recognition": rarity["l2_rarity_recall"],
+        "rarity_e2e_recognition": safe_ratio(len(rarity_recognized), len(rarity_rows)),
         "rarity_retention": rarity["end_to_end_rarity_retention"],
         "false_rarity": rarity["false_rarity_preservation_rate"],
         "sign_flip_survival": family_stats["survival_rate"]["sign_flip_proxy"],
@@ -129,7 +132,8 @@ def summarize_by_mode(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     metric_keys = [
         "main_accuracy",
         "corner_accuracy",
-        "rarity_recognition",
+        "rarity_l2_conditional_recognition",
+        "rarity_e2e_recognition",
         "rarity_retention",
         "false_rarity",
         "sign_flip_survival",
