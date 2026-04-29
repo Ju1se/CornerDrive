@@ -9,10 +9,23 @@ Core functionality:
 """
 
 from .aggregation import AggregationResult, filter_suspects, geometric_median, cosine_similarity
-from .server import app, GradientSubmission, SubmissionResponse, BatchResult, HealthResponse
 
 __version__ = "1.0.0"
 __author__ = "FLPG Team"
+
+
+def __getattr__(name):
+    if name in {
+        "app",
+        "GradientSubmission",
+        "SubmissionResponse",
+        "BatchResult",
+        "HealthResponse",
+    }:
+        from . import server
+
+        return getattr(server, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "AggregationResult",

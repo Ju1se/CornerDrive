@@ -9,10 +9,17 @@ Core functionality:
 """
 
 from .classifier import Classification, AuditResult, DualChannelAuditor
-from .worker import celery_app, audit_gradient, get_statistics
 
 __version__ = "1.0.0"
 __author__ = "FLPG Team"
+
+
+def __getattr__(name):
+    if name in {"celery_app", "audit_gradient", "get_statistics"}:
+        from . import worker
+
+        return getattr(worker, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "Classification",
