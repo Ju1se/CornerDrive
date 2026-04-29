@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+.eggs/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+coverage.xml
+
+# Runtime and experiment artifacts
+results/
+logs/
+backend/logs/
+runtime_state/
+backend/runtime_state/
+backend/celerybeat-*
+dump.rdb
+
+# Build
+*.log
+*.tmp
+.cache/
+
+# Blockchain
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+
+# Data (large files)
+data/models/*.pt
+data/models/*.pth
+*.pkl
+*.h5
+
+# Frontend build
+frontend/dist/
