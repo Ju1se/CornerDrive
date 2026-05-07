@@ -99,7 +99,7 @@ class GoldenDatasetManager:
     def _load_dataset_from_path(self) -> torch.utils.data.Dataset:
         """Load a golden dataset from a supported torch payload."""
         if self.dataset_path.is_file():
-            payload = torch.load(self.dataset_path, map_location="cpu")
+            payload = self._safe_torch_load(self.dataset_path)
             return self._dataset_from_payload(payload)
 
         dataset_candidates = [
@@ -110,7 +110,7 @@ class GoldenDatasetManager:
         ]
         for candidate in dataset_candidates:
             if candidate.exists():
-                payload = torch.load(candidate, map_location="cpu")
+                payload = self._safe_torch_load(candidate)
                 return self._dataset_from_payload(payload)
 
         data_path = self.dataset_path / "data.pt"
@@ -118,15 +118,19 @@ class GoldenDatasetManager:
         labels_path = self.dataset_path / "labels.pt"
         if data_path.exists() and (target_path.exists() or labels_path.exists()):
             payload = {
-                "data": torch.load(data_path, map_location="cpu"),
-                "targets": torch.load(
+                "data": self._safe_torch_load(data_path),
+                "targets": self._safe_torch_load(
                     target_path if target_path.exists() else labels_path,
-                    map_location="cpu",
                 ),
             }
             return self._dataset_from_payload(payload)
 
         raise RuntimeError(f"Unsupported golden dataset layout at {self.dataset_path}")
+
+    @staticmethod
+    def _safe_torch_load(path: Path) -> Any:
+        """Load trusted tensor-only dataset artifacts without pickle objects."""
+        return torch.load(path, map_location="cpu", weights_only=True)
 
     def _dataset_from_payload(self, payload: Any) -> torch.utils.data.Dataset:
         """Normalize common saved payload formats into a TensorDataset."""

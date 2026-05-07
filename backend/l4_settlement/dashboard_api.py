@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import redis
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Security
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from web3 import Web3
@@ -21,6 +21,7 @@ from common.config import (
     L4_DASHBOARD_PORT,
     REDIS_URL,
     GANACHE_URL,
+    L4_CORS_ALLOWED_ORIGINS,
     L4_CONTRACT_ADDRESS,
     L4_ORACLE_PRIVATE_KEY,
     L3_DRIFT_THRESHOLD,
@@ -28,6 +29,7 @@ from common.config import (
 )
 from common.policy_loader import load_current_policy
 from common.schemas import Policy
+from common.security import verify_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +42,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=L4_CORS_ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -729,8 +731,12 @@ async def get_vehicles(
 
 
 @app.post("/api/v1/settle/batch")
-async def process_batch_settlement(batch: SettlementBatch):
+async def process_batch_settlement(
+    batch: SettlementBatch,
+    api_key: str = Security(verify_api_key),
+):
     """Process a round-scoped settlement batch against the blockchain."""
+    _ = api_key
     if not blockchain_available:
         raise HTTPException(status_code=503, detail="Blockchain not available")
 

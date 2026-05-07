@@ -64,7 +64,7 @@ load_dotenv(PROJECT_ROOT / ".env")
 # Environment / configuration
 # ---------------------------------------------------------------------------
 
-API_KEY = os.getenv("DEMO_API_KEY", "dev_key_1")
+API_KEY = os.getenv("DEMO_API_KEY", "change-me-local-dev-key")
 L1_API_URL = os.getenv("L1_API_URL", "http://127.0.0.1:8081").rstrip("/")
 L4_API_URL = os.getenv("L4_API_URL", "http://127.0.0.1:8082").rstrip("/")
 POLICY_AGENT_URL = os.getenv("POLICY_AGENT_URL", "http://127.0.0.1:8083").rstrip("/")

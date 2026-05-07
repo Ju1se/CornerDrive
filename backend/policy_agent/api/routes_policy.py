@@ -18,12 +18,13 @@ Canonical endpoints under this router:
 
 import asyncio
 from time import monotonic
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, Query, Security, status, Depends
 from typing import List, Optional
 import logging
 
 from common.schemas import Policy, PolicyProposal, RoundTelemetry
 from common.config import REDIS_URL
+from common.security import verify_api_key
 from policy_agent.api.exceptions import (
     PolicyNotFoundException,
     TelemetryNotFoundException,
@@ -221,7 +222,7 @@ async def get_policy_by_round(round_id: int, store=Depends(get_store)):
 
 @router.get("/history", response_model=List[Policy])
 async def get_policy_history(
-    limit: int = 10,
+    limit: int = Query(default=10, ge=1, le=100),
     store=Depends(get_store)
 ):
     """
@@ -260,6 +261,7 @@ async def get_policy_explanation(round_id: int, store=Depends(get_store)):
 @router.post("/propose", response_model=PolicyProposal)
 async def propose_next_policy(
     telemetry: RoundTelemetry,
+    api_key: str = Security(verify_api_key),
     store=Depends(get_store)
 ):
     """
@@ -276,6 +278,7 @@ async def propose_next_policy(
 
     UPDATED: GLM is now the primary decision maker (not advisory).
     """
+    _ = api_key
     from policy_agent.engine.glm_policy_engine import GLMPolicyEngine
     from policy_agent.constraints.validator import PolicyValidator
     from policy_agent.constraints.safety_guard import SafetyGuard
@@ -339,6 +342,7 @@ async def propose_next_policy(
 @router.post("/activate")
 async def activate_next_policy(
     round_id: int,
+    api_key: str = Security(verify_api_key),
     store=Depends(get_store)
 ):
     """
@@ -356,6 +360,7 @@ async def activate_next_policy(
     Returns:
         Activation result with policy hash
     """
+    _ = api_key
     activated_policy = await store.activate_next_policy(round_id)
 
     if not activated_policy:
@@ -392,9 +397,11 @@ async def get_latest_telemetry(store=Depends(get_store)):
 @router.post("/telemetry")
 async def save_latest_telemetry(
     telemetry: RoundTelemetry,
+    api_key: str = Security(verify_api_key),
     store=Depends(get_store)
 ):
     """Persist telemetry without generating a policy proposal."""
+    _ = api_key
     await store.save_telemetry(telemetry)
     return {
         "status": "saved",
@@ -416,7 +423,7 @@ async def get_telemetry_by_round(round_id: int, store=Depends(get_store)):
 
 @router.get("/telemetry", response_model=List[RoundTelemetry])
 async def get_telemetry_history(
-    limit: int = 10,
+    limit: int = Query(default=10, ge=1, le=100),
     store=Depends(get_store)
 ):
     """Get recent telemetry entries."""
@@ -479,8 +486,8 @@ async def compare_policies(
 
 @router.get("/glm-decisions")
 async def get_glm_decision_history(
-    limit: int = 20,
-    offset: int = 0,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0, le=1000),
     store=Depends(get_store)
 ):
     """
@@ -546,7 +553,7 @@ async def get_glm_decision_history(
 
 @router.get("/analysis/baselines")
 async def get_baseline_analysis(
-    rounds: int = 12,
+    rounds: int = Query(default=12, ge=4, le=24),
     store=Depends(get_store),
 ):
     """
@@ -555,6 +562,5 @@ async def get_baseline_analysis(
     The returned payload is computed on demand by the backend evaluation
     engine so the frontend does not embed any presentation-only datasets.
     """
-    rounds = max(4, min(rounds, 24))
     current_policy = await store.get_current_policy()
     return await _get_cached_baseline_analysis(current_policy, rounds)

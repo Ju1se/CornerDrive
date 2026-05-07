@@ -21,6 +21,7 @@ import type {
 const rawL1Api = import.meta.env.VITE_L1_API_URL || '/api/l1'
 const rawL4Api = import.meta.env.VITE_L4_API_URL || '/api/l4'
 const rawPolicyApi = import.meta.env.VITE_POLICY_AGENT_URL || '/api/policy'
+const apiKey = import.meta.env.VITE_API_KEY || ''
 
 function normalizePolicyApiBase(baseUrl: string) {
   const trimmed = baseUrl.replace(/\/$/, '')
@@ -44,6 +45,12 @@ const policyApi = axios.create({
 const slowPolicyApi = axios.create({
   timeout: 90000,
 })
+
+for (const client of [api, policyApi, slowPolicyApi]) {
+  if (apiKey) {
+    client.defaults.headers.common['X-API-Key'] = apiKey
+  }
+}
 
 function isNotFoundError(error: unknown) {
   return axios.isAxiosError(error) && error.response?.status === 404

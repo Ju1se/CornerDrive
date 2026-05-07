@@ -6,6 +6,7 @@ Receives gradients from vehicles, performs screening, routes suspects to L2.
 import asyncio
 import json
 import logging
+import math
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -14,19 +15,19 @@ import numpy as np
 import redis
 from fastapi import FastAPI, HTTPException, Request, Security
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from common.config import (
-    CELERY_BROKER_URL,
-    L1_HOST, L1_PORT, REDIS_URL, VALID_API_KEYS,
+    CELERY_BROKER_URL, L1_CORS_ALLOWED_ORIGINS,
+    L1_HOST, L1_MAX_GRADIENT_ABS, L1_MAX_GRADIENT_DIM, L1_PORT, REDIS_URL,
     L1_BATCH_SIZE, L1_BATCH_TIMEOUT, L1_RECHECK_PROBABILITY, L1_SUSPECT_THRESHOLD,
     L2_AUDIT_QUEUE,
 )
 from common.policy_loader import load_current_policy
+from common.security import verify_api_key
 from .aggregation import filter_suspects, AggregationResult
 from .config import l1_router_config_from_env
 
@@ -43,7 +44,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=L1_CORS_ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -69,25 +70,36 @@ l2_audit_client = Celery(
     backend=REDIS_URL,
 )
 
-# API Key security
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
-
-
 # ============ SCHEMAS ============
 
 class GradientSubmission(BaseModel):
     """Schema for gradient submission from vehicles."""
     vehicle_address: str = Field(..., min_length=42, max_length=42)
-    gradient_data: List[float] = Field(..., min_length=1)
+    gradient_data: List[float] = Field(..., min_length=1, max_length=L1_MAX_GRADIENT_DIM)
     data_sample_count: int = Field(..., gt=0, le=100000)
     timestamp: Optional[datetime] = None
 
     @field_validator("vehicle_address")
     @classmethod
     def validate_address(cls, v: str) -> str:
-        if not v.startswith('0x'):
-            raise ValueError('Address must start with 0x')
-        return v.lower()
+        normalized = v.lower()
+        if not normalized.startswith("0x"):
+            raise ValueError("Address must start with 0x")
+        try:
+            int(normalized[2:], 16)
+        except ValueError as exc:
+            raise ValueError("Address must be 20-byte hexadecimal") from exc
+        return normalized
+
+    @field_validator("gradient_data")
+    @classmethod
+    def validate_gradient_data(cls, values: List[float]) -> List[float]:
+        for value in values:
+            if not math.isfinite(value):
+                raise ValueError("Gradient values must be finite")
+            if abs(value) > L1_MAX_GRADIENT_ABS:
+                raise ValueError("Gradient value exceeds configured bound")
+        return values
 
 
 class SubmissionResponse(BaseModel):
@@ -115,16 +127,6 @@ class HealthResponse(BaseModel):
     service: str = "linear_defense"
     timestamp: datetime
     checks: Dict[str, str]
-
-
-# ============ SECURITY ============
-
-async def verify_api_key(api_key: str = Security(api_key_header)) -> str:
-    if not api_key:
-        raise HTTPException(status_code=401, detail="API key required")
-    if api_key not in VALID_API_KEYS:
-        raise HTTPException(status_code=403, detail="Invalid API key")
-    return api_key
 
 
 # ============ BATCH PROCESSING ============
@@ -254,6 +256,18 @@ def dispatch_l2_audit(suspect_data: dict) -> None:
         )
 
 
+def gradient_array_from_submission(submission: GradientSubmission) -> np.ndarray:
+    """Build a validated numeric gradient array from a submitted payload."""
+    return np.array(submission.gradient_data, dtype=float)
+
+
+def ensure_consistent_gradient_shapes(gradients: List[np.ndarray]) -> None:
+    """Reject mixed-dimensional batches before reaching aggregation math."""
+    shapes = {gradient.shape for gradient in gradients}
+    if len(shapes) != 1:
+        raise HTTPException(status_code=400, detail="All gradients in a batch must have the same dimension")
+
+
 # ============ ENDPOINTS ============
 
 @app.get("/health", response_model=HealthResponse)
@@ -299,11 +313,7 @@ async def submit_gradient(
     3. If suspect, queued for L2 audit
     """
     try:
-        gradient = np.array(submission.gradient_data)
-
-        # Quick validation
-        if np.any(np.isnan(gradient)) or np.any(np.isinf(gradient)):
-            raise HTTPException(status_code=400, detail="Invalid gradient values")
+        gradient = gradient_array_from_submission(submission)
 
         # Add to batch
         await batcher.add(submission.vehicle_address, gradient)
@@ -315,9 +325,11 @@ async def submit_gradient(
             message="Gradient queued for batch processing",
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error processing gradient: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to process gradient")
 
 
 @app.post("/api/v1/batches/process", response_model=BatchResult)
@@ -329,7 +341,8 @@ async def process_batch_now(
     if not gradients:
         raise HTTPException(status_code=400, detail="Empty gradient list")
 
-    gradient_arrays = [np.array(g.gradient_data) for g in gradients]
+    gradient_arrays = [gradient_array_from_submission(g) for g in gradients]
+    ensure_consistent_gradient_shapes(gradient_arrays)
     vehicle_ids = [g.vehicle_address for g in gradients]
 
     policy_round = 0

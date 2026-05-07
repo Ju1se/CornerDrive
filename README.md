@@ -59,6 +59,7 @@ Additional reproducibility exporters:
 | --- | --- |
 | `scripts/export_l1v3_ablation.py` | M0-M4 L1 visibility-router ablation |
 | `scripts/export_v25_stress_tests.py` | rarity/proxy/threshold stress-test tables |
+| `scripts/export_real_gradient_benchmark.py` | real-data client-gradient benchmark using LEAF/FEMNIST or torchvision data |
 | `scripts/export_corner_family_divergence.py` | corner-family divergence rho sweep |
 | `scripts/export_exhaustive_l2_audit.py` | full-visibility L2 upper-bound ablation |
 | `scripts/export_layer_cost_profile.py` | L1+L2 vs Exhaustive L2 cost profile |
