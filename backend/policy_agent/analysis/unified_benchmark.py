@@ -336,6 +336,8 @@ def _make_generator(
     initial_model: nn.Module,
     eval_bundle: EvalBundle,
     generator_seed: int = 20260318,
+    corner_family_divergence: float = 1.0,
+    corner_family_split_size: int = 50,
 ) -> DemoDataGenerator:
     generator = DemoDataGenerator(seed=generator_seed)
     generator.ground_truth_mode = "archetype"
@@ -352,6 +354,10 @@ def _make_generator(
     )
     generator.corner_gradient = _normalize_vector(
         generator._compute_dataset_gradient(eval_bundle.proto_corner)
+    )
+    generator.configure_corner_family_divergence(
+        corner_family_divergence,
+        family_size=corner_family_split_size,
     )
     generator.random_gradient = generator._build_random_basis()
     return generator

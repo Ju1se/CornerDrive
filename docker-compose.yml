@@ -1,0 +1,298 @@
+
+services:
+  # ============ INFRASTRUCTURE ============
+  redis:
+    image: redis:7-alpine
+    container_name: flpg-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - flpg-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ganache:
+    image: trufflesuite/ganache:v7.9.1  # 使用官方预编译镜像
+    container_name: flpg-ganache
+    ports:
+      - "8545:8545"
+    volumes:
+      - ganache_data:/ganache_data
+    networks:
+      - flpg-network
+    command:
+      - --host=0.0.0.0
+      - --port=8545
+      - --chain.chainId=1337
+      - --wallet.mnemonic=flpg test account security word seed
+      - --wallet.totalAccounts=10
+      - --miner.blockTime=2
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "const http=require('http');const req=http.request({hostname:'localhost',port:8545,method:'POST',headers:{'Content-Type':'application/json'}},res=>{let body='';res.on('data',chunk=>body+=chunk);res.on('end',()=>process.exit(res.statusCode===200&&body.includes('result')?0:1));});req.on('error',()=>process.exit(1));req.end(JSON.stringify({jsonrpc:'2.0',method:'eth_chainId',params:[],id:1}));"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  # ============ BACKEND SERVICES ============
+  l1-server:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.l1
+    container_name: flpg-l1
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - GANACHE_URL=http://ganache:8545
+      - POLICY_AGENT_URL=http://policy-agent:8080
+      - L1_HOST=0.0.0.0
+      - L1_PORT=8081
+    depends_on:
+      redis:
+        condition: service_healthy
+      ganache:
+        condition: service_healthy
+    networks:
+      - flpg-network
+    restart: unless-stopped
+
+  l2-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.l2
+    container_name: flpg-l2
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - GANACHE_URL=http://ganache:8545
+      - POLICY_AGENT_URL=http://policy-agent:8080
+    command: celery -A l2_dual_audit.worker:celery_app worker --loglevel=info --concurrency=4 --queues=l2_audit_queue,celery
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - flpg-network
+    restart: unless-stopped
+
+  l2-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.l2
+    container_name: flpg-l2-beat
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+    command: celery -A l2_dual_audit.worker:celery_app beat --loglevel=info --schedule=/tmp/l2-celerybeat-schedule
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - flpg-network
+    restart: unless-stopped
+
+  l4-dashboard:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.l4
+    container_name: flpg-l4
+    ports:
+      - "8082:8082"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - GANACHE_URL=http://ganache:8545
+      - POLICY_AGENT_URL=http://policy-agent:8080
+      - L4_DASHBOARD_HOST=0.0.0.0
+      - L4_DASHBOARD_PORT=8082
+      - L4_CONTRACT_ADDRESS=${L4_CONTRACT_ADDRESS}
+      - L4_ORACLE_PRIVATE_KEY=${L4_ORACLE_PRIVATE_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+      ganache:
+        condition: service_healthy
+    networks:
+      - flpg-network
+    restart: unless-stopped
+
+  # ============ POLICY AGENT SERVICE ============
+  policy-agent:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.policy
+    container_name: flpg-policy-agent
+    ports:
+      - "8083:8080"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - POLICY_AGENT_HOST=0.0.0.0
+      - POLICY_AGENT_PORT=8080
+      - L1_URL=http://l1-server:8081
+      - L4_URL=http://l4-dashboard:8082
+      - GLM_API_KEY=${GLM_API_KEY}
+      - GLM_BASE_URL=${GLM_BASE_URL:-https://open.bigmodel.cn/api/paas/v4}
+      - GLM_MODEL=${GLM_MODEL:-glm-4.5-air}
+      - POLICY_CHAIN_COMMIT_ENABLED=${POLICY_CHAIN_COMMIT_ENABLED:-false}
+      - POLICY_REGISTRY_ADDRESS=${POLICY_REGISTRY_ADDRESS}
+      - POLICY_ORACLE_PRIVATE_KEY=${POLICY_ORACLE_PRIVATE_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - flpg-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  policy-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.policy
+    container_name: flpg-policy-beat
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - L1_URL=http://l1-server:8081
+      - L4_URL=http://l4-dashboard:8082
+      - GLM_API_KEY=${GLM_API_KEY}
+      - GLM_BASE_URL=${GLM_BASE_URL:-https://open.bigmodel.cn/api/paas/v4}
+      - GLM_MODEL=${GLM_MODEL:-glm-4.5-air}
+    command: celery -A policy_agent.tasks.round_close:celery_app beat --loglevel=info --schedule=/tmp/policy-celerybeat-schedule
+    depends_on:
+      redis:
+        condition: service_healthy
+      l1-server:
+        condition: service_started
+      l4-dashboard:
+        condition: service_started
+    networks:
+      - flpg-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from pathlib import Path; import sys; data=Path('/proc/1/cmdline').read_text('utf-8', errors='ignore'); sys.exit(0 if 'celery' in data and 'policy_agent.tasks.round_close:celery_app' in data and 'beat' in data else 1)"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # Smart Contract Deployment
+  contract-deploy:
+    build:
+      context: ./contracts
+      dockerfile: Dockerfile
+    container_name: flpg-contract-deploy
+    environment:
+      - GANACHE_URL=http://ganache:8545
+      - MNEMONIC=flpg test account security word seed
+      - ORACLE_PRIVATE_KEY=${L4_ORACLE_PRIVATE_KEY}
+      - POLICY_ORACLE_PRIVATE_KEY=${POLICY_ORACLE_PRIVATE_KEY}
+    command: >
+      sh -c "
+        echo 'Waiting for Ganache to be ready...' &&
+        sleep 10 &&
+        echo 'Compiling contracts...' &&
+        npx hardhat compile &&
+        echo 'Deploying contracts...' &&
+        npx hardhat run scripts/deploy.js --network localhost &&
+        npx hardhat run scripts/deploy_policy_registry.js --network localhost &&
+        echo 'Contract deployment complete'
+      "
+    depends_on:
+      ganache:
+        condition: service_healthy
+    networks:
+      - flpg-network
+    profiles:
+      - deploy
+
+  # ============ FRONTEND ============
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: flpg-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_L1_API_URL=/api/l1
+      - VITE_L4_API_URL=/api/l4
+      - VITE_POLICY_AGENT_URL=/api/policy
+      - VITE_PROXY_L1_TARGET=http://l1-server:8081
+      - VITE_PROXY_L4_TARGET=http://l4-dashboard:8082
+      - VITE_PROXY_POLICY_TARGET=http://policy-agent:8080
+    depends_on:
+      - l1-server
+      - l4-dashboard
+      - policy-agent
+    networks:
+      - flpg-network
+
+  # ============ MONITORING ============
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: flpg-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - flpg-network
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: flpg-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - flpg-network
+    profiles:
+      - monitoring
+
+networks:
+  flpg-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+  ganache_data:
+  prometheus_data:
+  grafana_data:

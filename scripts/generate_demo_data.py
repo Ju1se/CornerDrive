@@ -107,6 +107,11 @@ GRADIENT_REFRESH_INTERVAL = int(os.getenv("GRADIENT_REFRESH_INTERVAL", "5"))
 # Optional persistence of per-round generation traces. Empty string disables.
 GENERATION_TRACE_DIR = os.getenv("GENERATION_TRACE_DIR", "")
 
+# Optional corner-family decoupling for anti-circularity stress tests.
+# rho=1.0 keeps the original V2.5 single-corner-reference behaviour.
+DEFAULT_CORNER_FAMILY_DIVERGENCE = float(os.getenv("DEMO_CORNER_FAMILY_DIVERGENCE", "1.0"))
+CORNER_FAMILY_SPLIT_SIZE = int(os.getenv("DEMO_CORNER_FAMILY_SPLIT_SIZE", "50"))
+
 # Phase-level role profiles. FRAUD has been split into two attack families:
 #   - "FRAUD"             : sign-flip-and-amplify (the original family)
 #   - "FRAUD_CORNER_HARM" : main-friendly but corner-harming attack
@@ -233,6 +238,20 @@ class CandidateMetrics:
     deviation: float
 
 
+class _DatasetSlice(torch.utils.data.Dataset):
+    """Small tensor-backed view used by generator-only corner-family probes."""
+
+    def __init__(self, dataset: Any, start: int, stop: int):
+        self.data = dataset.data[start:stop].detach().clone()
+        self.targets = dataset.targets[start:stop].detach().clone()
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.data[idx], self.targets[idx]
+
+
 # ---------------------------------------------------------------------------
 # Generator
 # ---------------------------------------------------------------------------
@@ -271,7 +290,17 @@ class DemoDataGenerator:
 
         self.main_gradient = normalize(self._compute_dataset_gradient(main_dataset))
         self.corner_gradient = normalize(self._compute_dataset_gradient(corner_dataset))
+        self.generator_corner_gradient = self.corner_gradient.copy()
+        self.corner_family_a_gradient = self.corner_gradient.copy()
+        self.corner_family_b_gradient = self.corner_gradient.copy()
+        self.corner_family_divergence = 1.0
+        self.corner_family_actual_cosine = 1.0
+        self.corner_family_seed_cosine = 1.0
+        self.corner_family_split_size = CORNER_FAMILY_SPLIT_SIZE
+        self.rarity_auditor = self.auditor
+        self.rarity_corner_dataset = corner_dataset
         self.random_gradient = self._build_random_basis()
+        self.configure_corner_family_divergence(DEFAULT_CORNER_FAMILY_DIVERGENCE)
 
         self.vehicle_pool = [
             self._vehicle_address(f"vehicle_pool_{index}")
@@ -314,6 +343,69 @@ class DemoDataGenerator:
             if parameter.grad is not None
         ]
         return torch.cat(flat_parts).cpu().numpy()
+
+    def configure_corner_family_divergence(
+        self,
+        rho: float = 1.0,
+        *,
+        family_size: int = CORNER_FAMILY_SPLIT_SIZE,
+    ) -> None:
+        """Decouple the generator's rarity corner from the auditor-facing corner.
+
+        The runtime L2 auditor is not changed here. This only controls the
+        reference direction and local precheck used when materialising the
+        synthetic RARITY archetype. rho is the target cosine between family A
+        (generator rarity utility) and family B (audit/proxy corner family).
+        """
+        rho = clamp(float(rho), 0.0, 1.0)
+        self.corner_family_divergence = rho
+        self.corner_family_split_size = int(max(1, family_size))
+
+        if rho >= 1.0 - 1e-12:
+            self.generator_corner_gradient = self.corner_gradient.copy()
+            self.corner_family_a_gradient = self.corner_gradient.copy()
+            self.corner_family_b_gradient = self.corner_gradient.copy()
+            self.corner_family_actual_cosine = cosine_similarity(
+                self.corner_family_a_gradient,
+                self.corner_family_b_gradient,
+            )
+            self.corner_family_seed_cosine = self.corner_family_actual_cosine
+            self.rarity_auditor = self.auditor
+            self.rarity_corner_dataset = self.corner_dataset
+            return
+
+        split = min(self.corner_family_split_size, max(1, len(self.corner_dataset) // 2))
+        family_a_dataset = _DatasetSlice(self.corner_dataset, 0, split)
+        family_b_dataset = _DatasetSlice(self.corner_dataset, split, min(len(self.corner_dataset), split * 2))
+        if len(family_b_dataset) == 0:
+            family_b_dataset = self.corner_dataset
+
+        family_a_seed = normalize(self._compute_dataset_gradient(family_a_dataset))
+        family_b_seed = normalize(self._compute_dataset_gradient(family_b_dataset))
+        residual = family_a_seed - np.dot(family_a_seed, family_b_seed) * family_b_seed
+
+        if np.linalg.norm(residual) < 1e-8:
+            residual = self._basis_from_key(f"corner-family-residual:{self.seed}:{rho:.3f}")
+            residual = residual - np.dot(residual, family_b_seed) * family_b_seed
+
+        residual = normalize(residual)
+        if np.dot(residual, family_a_seed) < 0.0:
+            residual = -residual
+
+        orthogonal_weight = float(np.sqrt(max(0.0, 1.0 - rho * rho)))
+        family_a = normalize(rho * family_b_seed + orthogonal_weight * residual)
+
+        self.corner_family_a_gradient = family_a
+        self.corner_family_b_gradient = family_b_seed
+        self.generator_corner_gradient = family_a
+        self.corner_family_actual_cosine = cosine_similarity(family_a, family_b_seed)
+        self.corner_family_seed_cosine = cosine_similarity(family_a_seed, family_b_seed)
+        self.rarity_corner_dataset = family_a_dataset
+        self.rarity_auditor = DualChannelAuditor(
+            model=copy.deepcopy(self.prototype_model),
+            main_dataset=self.main_dataset,
+            corner_dataset=family_a_dataset,
+        )
 
     def _build_random_basis(self) -> np.ndarray:
         raw = self.numpy_rng.normal(0.0, 1.0, size=DEMO_GRADIENT_DIM)
@@ -468,8 +560,10 @@ class DemoDataGenerator:
         self,
         vector: np.ndarray,
         honest_reference: np.ndarray | None,
+        role: str | None = None,
     ) -> CandidateMetrics:
-        result = self.auditor.audit("candidate", vector.copy())
+        auditor = self.rarity_auditor if role == "RARITY" else self.auditor
+        result = auditor.audit("candidate", vector.copy())
         deviation = (
             cosine_deviation_score(vector, honest_reference)
             if honest_reference is not None
@@ -495,7 +589,10 @@ class DemoDataGenerator:
 
         if self.ground_truth_mode == "archetype" and vector is not None:
             main_alignment = cosine_similarity(vector, self.main_gradient)
-            corner_alignment = cosine_similarity(vector, self.corner_gradient)
+            corner_reference = (
+                self.generator_corner_gradient if role == "RARITY" else self.corner_gradient
+            )
+            corner_alignment = cosine_similarity(vector, corner_reference)
             magnitude = float(np.linalg.norm(vector))
 
             if role == "HONEST":
@@ -638,9 +735,15 @@ class DemoDataGenerator:
             "stage": stage,
             "vehicle_id": vehicle_id,
             "corner_dominant_score": cosine_similarity(vector, self.corner_gradient),
+            "corner_family_a_score": cosine_similarity(vector, self.generator_corner_gradient),
+            "corner_family_b_score": cosine_similarity(vector, self.corner_family_b_gradient),
+            "corner_family_target_rho": self.corner_family_divergence,
+            "corner_family_actual_cosine": self.corner_family_actual_cosine,
+            "corner_family_seed_cosine": self.corner_family_seed_cosine,
             "main_suppression_score": -cosine_similarity(vector, self.main_gradient),
             "precheck_delta_l_main": metrics.delta_main,
             "precheck_delta_l_corner": metrics.delta_corner,
+            "precheck_corner_family": "A" if self.rarity_auditor is not self.auditor else "baseline",
             "passed_precheck": self._rarity_precheck_passed(metrics, policy),
             "accepted_as_rarity": accepted_as_rarity,
             "theta_tol_used": policy.theta_tol,
@@ -692,7 +795,7 @@ class DemoDataGenerator:
         style_weight, drift_weight, residual_weight, min_factor, max_factor = role_mix[role]
 
         anchor_direction = normalize(anchor)
-        anchor_metrics = self._evaluate_candidate(anchor, honest_reference)
+        anchor_metrics = self._evaluate_candidate(anchor, honest_reference, role=role)
         last_metrics = anchor_metrics
 
         for attempt in range(ROLE_MATERIALIZE_RETRIES):
@@ -707,7 +810,7 @@ class DemoDataGenerator:
             )
             scale_factor = self.random.uniform(min_factor, max_factor) * count_scale
             candidate = direction * anchor_scale * scale_factor
-            metrics = self._evaluate_candidate(candidate, honest_reference)
+            metrics = self._evaluate_candidate(candidate, honest_reference, role=role)
             accepted = self._matches_target(role, metrics, policy, vector=candidate)
             if role == "RARITY":
                 self._record_rarity_generation(
@@ -839,6 +942,7 @@ class DemoDataGenerator:
         round_drift: np.ndarray | None = None,
     ) -> np.ndarray | None:
         self.auditor.apply_policy(policy)
+        self.rarity_auditor.apply_policy(policy)
         round_drift = round_drift if round_drift is not None else self.random_gradient
 
         if role == "HONEST":
@@ -853,13 +957,14 @@ class DemoDataGenerator:
                 return None
             return self._find_signflip_gradient(policy, honest_reference, round_drift)
         elif role == "RARITY":
+            rarity_corner = self.generator_corner_gradient
             bases = [
-                1.85 * self.corner_gradient - 0.78 * self.main_gradient
+                1.85 * rarity_corner - 0.78 * self.main_gradient
                 + 0.34 * self._basis_from_key("rarity-outlier-core"),
-                1.65 * self.corner_gradient - 0.28 * self.main_gradient + 0.26 * round_drift,
-                1.78 * self.corner_gradient - 0.38 * self.main_gradient
+                1.65 * rarity_corner - 0.28 * self.main_gradient + 0.26 * round_drift,
+                1.78 * rarity_corner - 0.38 * self.main_gradient
                 + 0.30 * self.random_gradient + 0.24 * round_drift,
-                1.42 * self.corner_gradient + 0.42 * self._basis_from_key("rarity-support")
+                1.42 * rarity_corner + 0.42 * self._basis_from_key("rarity-support")
                 - 0.30 * self.main_gradient + 0.28 * round_drift,
             ]
             scales = [10.00, 12.00, 14.00, 16.00, 18.00, 20.00, 24.00, 28.00]
@@ -879,7 +984,7 @@ class DemoDataGenerator:
         for base_index, base in enumerate(bases):
             for scale in scales:
                 candidate = self._make_candidate(base, scale)
-                metrics = self._evaluate_candidate(candidate, honest_reference)
+                metrics = self._evaluate_candidate(candidate, honest_reference, role=role)
                 accepted = self._matches_target(role, metrics, policy, vector=candidate)
                 if role == "RARITY":
                     self._record_rarity_generation(
@@ -895,7 +1000,7 @@ class DemoDataGenerator:
                     return candidate
                 if self.ground_truth_mode == "archetype" and role == "RARITY":
                     main_alignment = cosine_similarity(candidate, self.main_gradient)
-                    corner_alignment = cosine_similarity(candidate, self.corner_gradient)
+                    corner_alignment = cosine_similarity(candidate, self.generator_corner_gradient)
                     score = (
                         corner_alignment * 2.0
                         - max(main_alignment, 0.0) * 1.5

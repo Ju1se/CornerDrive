@@ -278,7 +278,13 @@ def classify_shadow_audit(
     base_main_loss: float,
     base_corner_loss: float,
     audit_mode: str = "dual",
+    theta_corner_harm_proxy: float | None = None,
 ) -> dict[str, Any]:
+    corner_harm_threshold = (
+        THETA_CORNER_HARM_PROXY
+        if theta_corner_harm_proxy is None
+        else float(theta_corner_harm_proxy)
+    )
     updated_model = auditor.apply_gradient(gradient)
     main_after = auditor.compute_loss(updated_model, auditor.main_loader)
     corner_after = auditor.compute_loss(updated_model, auditor.corner_loader)
@@ -299,7 +305,7 @@ def classify_shadow_audit(
             verdict = "RARITY"
             include = True
             action = "accept_rarity"
-        elif delta_corner > THETA_CORNER_HARM_PROXY:
+        elif delta_corner > corner_harm_threshold:
             verdict = "FRAUD"
             include = False
             action = "reject_corner_harm"
@@ -315,7 +321,7 @@ def classify_shadow_audit(
         verdict = "RARITY"
         include = True
         action = "accept_rarity"
-    elif delta_main <= 0 and delta_corner > THETA_CORNER_HARM_PROXY:
+    elif delta_main <= 0 and delta_corner > corner_harm_threshold:
         verdict = "FRAUD"
         include = False
         action = "reject_corner_harm"
@@ -370,6 +376,8 @@ def run_flpg_with_artifacts(
     recheck_seed: int = 20260428,
     compute_oracle_drift: bool = True,
     l1_router_config: L1RouterConfig | None = None,
+    theta_corner_harm_proxy: float | None = None,
+    force_exhaustive_l2: bool = False,
 ) -> tuple[
     list[dict[str, Any]],
     list[dict[str, Any]],
@@ -380,6 +388,11 @@ def run_flpg_with_artifacts(
 ]:
     runtime = _make_runtime(initial_model, eval_bundle)
     current_policy = clone_policy(reference_policy)
+    corner_harm_threshold = (
+        THETA_CORNER_HARM_PROXY
+        if theta_corner_harm_proxy is None
+        else float(theta_corner_harm_proxy)
+    )
 
     round_summary_rows: list[dict[str, Any]] = []
     l1_rows: list[dict[str, Any]] = []
@@ -419,6 +432,13 @@ def run_flpg_with_artifacts(
             client_states=l1_client_states,
             current_round=round_bundle.round_id,
         )
+        if force_exhaustive_l2:
+            l1_result.clean_indices = []
+            l1_result.suspect_indices = list(range(len(round_bundle.gradients)))
+            l1_result.routing_reasons = {
+                idx: "exhaustive_l2_audit"
+                for idx in l1_result.suspect_indices
+            }
         suspect_indices = set(l1_result.suspect_indices)
         selected_indices = set(range(len(round_bundle.gradients))) - suspect_indices
         predicted_labels = ["HONEST" for _ in round_bundle.gradients]
@@ -515,6 +535,7 @@ def run_flpg_with_artifacts(
                 base_main_loss=base_main_loss,
                 base_corner_loss=base_corner_loss,
                 audit_mode=audit_mode,
+                theta_corner_harm_proxy=corner_harm_threshold,
             )
 
             if routed:
@@ -538,9 +559,9 @@ def run_flpg_with_artifacts(
                     fraud_survival_by_family[attack_family] += 1
             if routed and true_label == "FRAUD" and actual_verdict == "FRAUD":
                 fraud_caught_by_routing_reason[routing_reason] += 1
-            if actual_action == "accept_standard" and shadow["delta_l_main"] < 0 and shadow["delta_l_corner"] <= THETA_CORNER_HARM_PROXY:
+            if actual_action == "accept_standard" and shadow["delta_l_main"] < 0 and shadow["delta_l_corner"] <= corner_harm_threshold:
                 honest_safe_count += 1
-            if actual_action == "accept_standard" and shadow["delta_l_main"] < 0 and shadow["delta_l_corner"] > THETA_CORNER_HARM_PROXY:
+            if actual_action == "accept_standard" and shadow["delta_l_main"] < 0 and shadow["delta_l_corner"] > corner_harm_threshold:
                 blind_spot_observed += 1
 
             actual_action_counts[actual_action] += 1
@@ -595,7 +616,7 @@ def run_flpg_with_artifacts(
                 "recheck_probability": eval_policy.recheck_probability,
                 "theta_tol": eval_policy.theta_tol,
                 "theta_rare": eval_policy.theta_rare,
-                "theta_corner_harm": THETA_CORNER_HARM_PROXY,
+                "theta_corner_harm": corner_harm_threshold,
                 "phase_name": round_bundle.phase,
             })
 
@@ -649,7 +670,7 @@ def run_flpg_with_artifacts(
             "tau_screen": eval_policy.cosine_filter_threshold,
             "theta_tol": eval_policy.theta_tol,
             "theta_rare": eval_policy.theta_rare,
-            "theta_corner_harm": THETA_CORNER_HARM_PROXY,
+            "theta_corner_harm": corner_harm_threshold,
             "theta_corner_harm_source": THETA_CORNER_HARM_SOURCE,
             "corner_weight": eval_policy.corner_weight,
             "reward_multiplier": eval_policy.rarity_reward_multiplier,
@@ -677,7 +698,7 @@ def run_flpg_with_artifacts(
             "tau_screen": eval_policy.cosine_filter_threshold,
             "theta_tol": eval_policy.theta_tol,
             "theta_rare": eval_policy.theta_rare,
-            "theta_corner_harm": THETA_CORNER_HARM_PROXY,
+            "theta_corner_harm": corner_harm_threshold,
             "theta_corner_harm_source": THETA_CORNER_HARM_SOURCE,
             "corner_weight": eval_policy.corner_weight,
             "recheck_probability": eval_policy.recheck_probability,

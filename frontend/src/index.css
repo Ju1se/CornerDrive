@@ -1,0 +1,226 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f6f2e8;
+  --bg-strong: #ece4d4;
+  --panel: rgba(255, 251, 243, 0.82);
+  --panel-strong: rgba(253, 247, 238, 0.94);
+  --line: rgba(116, 95, 64, 0.18);
+  --text: #1d232b;
+  --muted: #5d6977;
+  --accent: #0f766e;
+  --accent-soft: rgba(15, 118, 110, 0.12);
+  --danger: #b83b3b;
+  --warning: #c77f23;
+  --success: #0f7b61;
+  --info: #305eb2;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(210, 153, 73, 0.18), transparent 34%),
+    radial-gradient(circle at top right, rgba(15, 118, 110, 0.16), transparent 30%),
+    linear-gradient(180deg, #faf5ec 0%, #f2ebdf 100%);
+}
+
+html {
+  min-height: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  font-family: "Space Grotesk", "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+  line-height: 1.55;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1, "ss01" 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background:
+    radial-gradient(circle at top left, rgba(210, 153, 73, 0.18), transparent 34%),
+    radial-gradient(circle at top right, rgba(15, 118, 110, 0.16), transparent 30%),
+    linear-gradient(180deg, #faf5ec 0%, #f2ebdf 100%);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: rgba(15, 118, 110, 0.16);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(93, 105, 119, 0.28);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.03em;
+  }
+
+  p {
+    max-width: 72ch;
+  }
+
+  code,
+  pre,
+  .font-mono {
+    font-family: "JetBrains Mono", "IBM Plex Mono", "SFMono-Regular", monospace;
+  }
+
+  input,
+  button,
+  textarea,
+  select {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .page-shell {
+    @apply space-y-7 md:space-y-9;
+  }
+
+  .page-hero {
+    @apply rounded-[30px] border px-6 py-6 md:px-8 md:py-8;
+    border-color: var(--line);
+    background:
+      linear-gradient(135deg, rgba(255, 251, 243, 0.92), rgba(255, 247, 232, 0.7)),
+      radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 34%);
+    box-shadow: 0 18px 50px rgba(49, 39, 24, 0.08);
+  }
+
+  .glass-panel {
+    @apply rounded-[26px] border;
+    border-color: var(--line);
+    background: var(--panel);
+    box-shadow:
+      0 12px 30px rgba(45, 33, 15, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    backdrop-filter: blur(14px);
+  }
+
+  .glass-panel-strong {
+    @apply rounded-[26px] border;
+    border-color: var(--line);
+    background: var(--panel-strong);
+    box-shadow:
+      0 20px 45px rgba(45, 33, 15, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  .metric-tile {
+    @apply rounded-[24px] border p-5 md:p-6;
+    border-color: rgba(116, 95, 64, 0.12);
+    background: linear-gradient(180deg, rgba(255, 252, 247, 0.9), rgba(250, 244, 235, 0.88));
+    box-shadow: 0 10px 25px rgba(45, 33, 15, 0.06);
+  }
+
+  .metric-icon-wrap {
+    @apply inline-flex h-12 w-12 items-center justify-center rounded-2xl border;
+    border-color: rgba(255, 255, 255, 0.6);
+  }
+
+  .section-label {
+    @apply text-xs font-semibold uppercase tracking-[0.28em];
+    color: #8b6b42;
+  }
+
+  .table-shell {
+    @apply overflow-hidden rounded-[24px] border;
+    border-color: var(--line);
+    background: rgba(255, 251, 243, 0.86);
+    box-shadow: 0 14px 30px rgba(45, 33, 15, 0.06);
+  }
+
+  .table-shell table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .table-header-row {
+    background: rgba(132, 111, 82, 0.08);
+  }
+
+  .section-note {
+    @apply rounded-[20px] border px-4 py-3 text-sm leading-6;
+    border-color: rgba(116, 95, 64, 0.12);
+    background: rgba(255, 250, 243, 0.8);
+    color: var(--muted);
+  }
+
+  .field-cluster {
+    @apply rounded-[22px] border p-4 md:p-5;
+    border-color: rgba(116, 95, 64, 0.12);
+    background: rgba(255, 252, 247, 0.74);
+  }
+
+  .field-cluster-title {
+    @apply text-sm font-semibold text-slate-900;
+  }
+
+  .field-cluster-copy {
+    @apply mt-1 text-sm leading-6 text-slate-500;
+  }
+
+  .soft-input {
+    @apply w-full rounded-2xl border px-4 py-3 text-sm outline-none transition-all;
+    border-color: rgba(116, 95, 64, 0.16);
+    background: rgba(255, 252, 247, 0.92);
+  }
+
+  .soft-input:focus {
+    border-color: rgba(15, 118, 110, 0.45);
+    box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.08);
+  }
+
+  .soft-button {
+    @apply rounded-2xl px-4 py-2.5 text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .soft-button-primary {
+    @apply soft-button text-white;
+    background: linear-gradient(135deg, #0f766e, #115e59);
+    box-shadow: 0 10px 18px rgba(15, 118, 110, 0.18);
+  }
+
+  .soft-button-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 24px rgba(15, 118, 110, 0.22);
+  }
+
+  .soft-button-secondary {
+    @apply soft-button;
+    color: var(--text);
+    background: rgba(255, 248, 238, 0.95);
+    border: 1px solid rgba(116, 95, 64, 0.14);
+  }
+
+  .soft-button-secondary:hover {
+    background: rgba(251, 242, 228, 0.96);
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+}

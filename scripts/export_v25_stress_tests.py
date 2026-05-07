@@ -107,6 +107,11 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=PROJECT_ROOT / "results" / "v25_stress_tests",
     )
+    parser.add_argument(
+        "--skip-oracle-drift",
+        action="store_true",
+        help="Skip oracle drift columns for faster mechanism stress-table exports.",
+    )
     return parser.parse_args()
 
 
@@ -585,6 +590,7 @@ def run_rarity_stress(
                 l1_router_mode=args.l1_router_mode,
                 l1_queue_budget_ratio=args.l1_queue_budget_ratio,
                 l1_random_recheck_ratio=args.l1_random_recheck_ratio,
+                compute_oracle_drift=not args.skip_oracle_drift,
             )
             raw_rows.append({
                 "experiment": "rarity_overlap",
@@ -781,6 +787,7 @@ def main() -> int:
                 {"parameter": parameter, "value": value}
                 for parameter, value in THRESHOLD_CONFIGS
             ],
+            "compute_oracle_drift": not args.skip_oracle_drift,
             "initial_checkpoint": checkpoint_info,
         },
     )
