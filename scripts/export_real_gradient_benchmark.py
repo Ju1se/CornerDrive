@@ -18,6 +18,7 @@ for candidate in (PROJECT_ROOT, BACKEND_DIR):
 from common.schemas import DEFAULT_POLICY  # noqa: E402
 from policy_agent.analysis.real_gradient_benchmark import (  # noqa: E402
     RealGradientBenchmarkConfig,
+    make_real_data_adaptive_policy,
     run_real_gradient_benchmark,
     write_real_gradient_outputs,
 )
@@ -76,10 +77,25 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--corner-harm-scale", type=float, default=2.0)
     parser.add_argument("--zeno-score-penalty", type=float, default=1e-4)
     parser.add_argument("--zenopp-score-temperature", type=float, default=0.05)
+    parser.add_argument(
+        "--policy-profile",
+        choices=["default", "real_data_adaptive"],
+        default="real_data_adaptive",
+        help=(
+            "CornerDrive policy profile. real_data_adaptive uses the tuned "
+            "thresholds from the current real-gradient MNIST/Fashion/FEMNIST traces."
+        ),
+    )
     parser.add_argument("--theta-tol", type=float, default=None)
     parser.add_argument("--theta-rare", type=float, default=None)
     parser.add_argument("--cosine-filter-threshold", type=float, default=None)
     parser.add_argument("--recheck-probability", type=float, default=None)
+    parser.add_argument("--cornerdrive-l1-mode", default=None)
+    parser.add_argument("--cornerdrive-l1-norm-mad-threshold", type=float, default=None)
+    parser.add_argument("--cornerdrive-l1-sign-threshold", type=float, default=None)
+    parser.add_argument("--cornerdrive-l1-sign-topk-ratio", type=float, default=None)
+    parser.add_argument("--cornerdrive-l1-queue-budget-ratio", type=float, default=None)
+    parser.add_argument("--cornerdrive-l1-random-recheck-ratio", type=float, default=None)
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -90,6 +106,25 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if args.policy_profile == "real_data_adaptive":
+        l1_defaults = {
+            "cornerdrive_l1_mode": "v3_m2_norm_sign_fixed",
+            "cornerdrive_l1_norm_mad_threshold": 2.5,
+            "cornerdrive_l1_sign_threshold": 0.55,
+            "cornerdrive_l1_sign_topk_ratio": 0.10,
+            "cornerdrive_l1_queue_budget_ratio": 0.35,
+            "cornerdrive_l1_random_recheck_ratio": 0.05,
+        }
+    else:
+        l1_defaults = {
+            "cornerdrive_l1_mode": "v25_cosine_fixed",
+            "cornerdrive_l1_norm_mad_threshold": 3.0,
+            "cornerdrive_l1_sign_threshold": 0.65,
+            "cornerdrive_l1_sign_topk_ratio": 0.10,
+            "cornerdrive_l1_queue_budget_ratio": 0.35,
+            "cornerdrive_l1_random_recheck_ratio": 0.05,
+        }
+
     config = RealGradientBenchmarkConfig(
         source=args.source,
         leaf_data_dir=args.leaf_data_dir,
@@ -118,6 +153,37 @@ def main() -> None:
         corner_harm_scale=args.corner_harm_scale,
         zeno_score_penalty=args.zeno_score_penalty,
         zenopp_score_temperature=args.zenopp_score_temperature,
+        cornerdrive_l1_mode=args.cornerdrive_l1_mode or l1_defaults["cornerdrive_l1_mode"],
+        cornerdrive_l1_norm_mad_threshold=(
+            args.cornerdrive_l1_norm_mad_threshold
+            if args.cornerdrive_l1_norm_mad_threshold is not None
+            else l1_defaults["cornerdrive_l1_norm_mad_threshold"]
+        ),
+        cornerdrive_l1_sign_threshold=(
+            args.cornerdrive_l1_sign_threshold
+            if args.cornerdrive_l1_sign_threshold is not None
+            else l1_defaults["cornerdrive_l1_sign_threshold"]
+        ),
+        cornerdrive_l1_sign_topk_ratio=(
+            args.cornerdrive_l1_sign_topk_ratio
+            if args.cornerdrive_l1_sign_topk_ratio is not None
+            else l1_defaults["cornerdrive_l1_sign_topk_ratio"]
+        ),
+        cornerdrive_l1_queue_budget_ratio=(
+            args.cornerdrive_l1_queue_budget_ratio
+            if args.cornerdrive_l1_queue_budget_ratio is not None
+            else l1_defaults["cornerdrive_l1_queue_budget_ratio"]
+        ),
+        cornerdrive_l1_random_recheck_ratio=(
+            args.cornerdrive_l1_random_recheck_ratio
+            if args.cornerdrive_l1_random_recheck_ratio is not None
+            else l1_defaults["cornerdrive_l1_random_recheck_ratio"]
+        ),
+    )
+    policy = (
+        make_real_data_adaptive_policy()
+        if args.policy_profile == "real_data_adaptive"
+        else DEFAULT_POLICY
     )
     policy_updates = {
         key: value
@@ -129,7 +195,7 @@ def main() -> None:
         }.items()
         if value is not None
     }
-    policy = DEFAULT_POLICY.model_copy(update=policy_updates) if policy_updates else None
+    policy = policy.model_copy(update=policy_updates) if policy_updates else policy
     result = run_real_gradient_benchmark(config, policy=policy)
     write_real_gradient_outputs(result, args.output_dir)
     summary = result["methods"]["cornerdrive"]["summary"]
@@ -139,7 +205,8 @@ def main() -> None:
         f"main_acc={summary['main_accuracy_avg']:.4f}, "
         f"corner_acc={summary['corner_accuracy_avg']:.4f}, "
         f"fraud_survival={summary['fraud_survival_rate_avg']:.4f}, "
-        f"rarity_retention={summary['rarity_retention_rate_avg']:.4f}"
+        f"rarity_retention={summary['rarity_retention_rate_avg']:.4f}, "
+        f"l1_review_rate={summary.get('l1_review_rate_avg', 0.0):.4f}"
     )
 
 

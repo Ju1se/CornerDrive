@@ -41,6 +41,23 @@ python scripts/export_real_gradient_benchmark.py \
   --output-dir results/real_gradient_benchmark
 ```
 
+The exporter defaults to `--policy-profile real_data_adaptive`. This profile
+comes from the current MNIST, FashionMNIST, and LEAF/FEMNIST real-gradient
+calibration runs. It tightens L2 fraud tolerance, relaxes the rarity threshold
+enough to preserve mixed real clients, and routes CornerDrive through L1V3
+norm/sign screening:
+
+```bash
+python scripts/export_real_gradient_benchmark.py \
+  --source leaf_femnist \
+  --leaf-data-dir data/real/femnist \
+  --policy-profile real_data_adaptive \
+  --cornerdrive-l1-mode v3_m2_norm_sign_fixed
+```
+
+Use `--policy-profile default --cornerdrive-l1-mode v25_cosine_fixed` to
+reproduce the original V2.5 cosine-only CornerDrive behavior.
+
 If LEAF data is not present, a real-sample fallback can derive gradients from
 torchvision MNIST or FashionMNIST:
 
@@ -89,6 +106,27 @@ from the validation slice, Zeno uses validation-loss descent scoring, and
 Zeno++ uses the same score as a synchronous score-weighted benchmark variant.
 Core metrics are main accuracy, corner accuracy, fraud survival, rarity
 retention, and CornerDrive fraud/rarity precision and recall.
+
+For CornerDrive, the round records also include L1 diagnostics:
+`l1_router_mode`, `l1_suspect_total`, `l1_review_rate`, `l1_routing_reasons`,
+and fraud survival split by attack family. These fields are important for real
+data because stealthy sign-flip proxy gradients can sit inside the cosine-only
+clean region while still being caught by norm/sign-assisted L1V3 routing.
+
+Current local calibration on MNIST, FashionMNIST, and LEAF/FEMNIST shows why
+the adaptive profile is the default for real data:
+
+| CornerDrive profile | Main acc | Corner acc | Fraud survival | Rarity retention |
+| --- | ---: | ---: | ---: | ---: |
+| Default V2.5 cosine-only | 0.4475 | 0.4723 | 0.6250 | 0.8545 |
+| Tuned thresholds, V2.5 L1 | 0.4605 | 0.5495 | 0.3646 | 0.8663 |
+| Real-data adaptive L1V3 | 0.4783 | 0.5918 | 0.0521 | 0.8402 |
+
+The trade-off is audit cost: the adaptive profile routes about 80-86% of each
+16-client round through L2. This is intentional for the thesis benchmark, where
+the goal is evidence-backed fraud suppression on real non-IID gradients; a
+larger deployment can lower review coverage with `v3_m3_budgeted` once the
+fraud-pressure target is fixed.
 
 `--rarity-label-fraction-threshold` controls when a real client is treated as
 corner/rarity-heavy. The default `0.30` is intentionally below a strict

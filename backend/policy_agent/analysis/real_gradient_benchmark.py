@@ -42,10 +42,17 @@ for candidate in (PROJECT_ROOT, BACKEND_DIR, SCRIPTS_DIR):
 from common.config import L2_LEARNING_RATE  # noqa: E402
 from common.schemas import DEFAULT_POLICY, Policy  # noqa: E402
 from l1_linear_defense.aggregation import filter_suspects, geometric_median  # noqa: E402
+from l1_linear_defense.config import L1RouterConfig, make_l1_router_config  # noqa: E402
 from l2_dual_audit.classifier import DualChannelAuditor  # noqa: E402
 
 
 DEFAULT_CORNER_LABELS = (1, 7, 9)
+REAL_DATA_ADAPTIVE_POLICY_UPDATES: dict[str, float] = {
+    "theta_tol": 0.02,
+    "theta_rare": -0.005,
+    "cosine_filter_threshold": 0.60,
+    "recheck_probability": 0.25,
+}
 
 
 @dataclass(frozen=True)
@@ -104,6 +111,12 @@ class RealGradientBenchmarkConfig:
     corner_harm_scale: float = 2.0
     zeno_score_penalty: float = 1e-4
     zenopp_score_temperature: float = 0.05
+    cornerdrive_l1_mode: str = "v25_cosine_fixed"
+    cornerdrive_l1_norm_mad_threshold: float = 3.0
+    cornerdrive_l1_sign_threshold: float = 0.65
+    cornerdrive_l1_sign_topk_ratio: float = 0.10
+    cornerdrive_l1_queue_budget_ratio: float = 0.35
+    cornerdrive_l1_random_recheck_ratio: float = 0.05
 
 
 class TinyImageMLP(nn.Module):
@@ -1068,6 +1081,25 @@ def _summarize_classification(
     }
 
 
+def make_real_data_adaptive_policy(base_policy: Policy | None = None) -> Policy:
+    """Policy profile calibrated from the current MNIST/Fashion/FEMNIST traces."""
+
+    return (base_policy or DEFAULT_POLICY).model_copy(update=REAL_DATA_ADAPTIVE_POLICY_UPDATES)
+
+
+def _cornerdrive_l1_router_config(config: RealGradientBenchmarkConfig) -> L1RouterConfig | None:
+    if config.cornerdrive_l1_mode == "v25_cosine_fixed":
+        return None
+    return make_l1_router_config(
+        config.cornerdrive_l1_mode,
+        norm_mad_threshold=config.cornerdrive_l1_norm_mad_threshold,
+        sign_threshold=config.cornerdrive_l1_sign_threshold,
+        sign_topk_ratio=config.cornerdrive_l1_sign_topk_ratio,
+        queue_budget_ratio=config.cornerdrive_l1_queue_budget_ratio,
+        random_recheck_ratio=config.cornerdrive_l1_random_recheck_ratio,
+    )
+
+
 def run_real_gradient_benchmark(
     config: RealGradientBenchmarkConfig | None = None,
     policy: Policy | None = None,
@@ -1108,6 +1140,7 @@ def run_real_gradient_benchmark(
         "zenopp": {"label": "Zeno++", "model": copy.deepcopy(initial_model), "rounds": []},
         "cornerdrive": {"label": "CornerDrive", "model": copy.deepcopy(initial_model), "rounds": []},
     }
+    cornerdrive_router_config = _cornerdrive_l1_router_config(config)
     all_predictions: dict[str, list[str]] = {"cornerdrive": []}
     all_truth: list[str] = []
 
@@ -1158,6 +1191,9 @@ def run_real_gradient_benchmark(
 
             selected_indices: set[int]
             predicted = ["ACCEPTED" for _ in raw_gradients]
+            l1_suspect_total = 0
+            l1_router_mode = None
+            l1_routing_reasons: dict[str, int] = {}
             if method_id == "fedavg":
                 selected_indices = set(range(len(raw_gradients)))
                 aggregated = _mean_gradient(raw_gradients)
@@ -1228,8 +1264,13 @@ def run_real_gradient_benchmark(
                     threshold=policy.cosine_filter_threshold,
                     recheck_probability=policy.recheck_probability,
                     rng=random.Random(config.seed + round_index),
+                    router_config=cornerdrive_router_config,
+                    current_round=round_index,
                 )
                 suspect_indices = set(l1.suspect_indices)
+                l1_suspect_total = len(suspect_indices)
+                l1_router_mode = l1.router_mode
+                l1_routing_reasons = dict(Counter(l1.routing_reasons.values()))
                 selected_indices = set(range(len(raw_gradients))) - suspect_indices
                 predicted = ["HONEST" for _ in raw_gradients]
                 runtime_auditor = DualChannelAuditor(
@@ -1256,7 +1297,7 @@ def run_real_gradient_benchmark(
             selected_truth = Counter(truth[idx] for idx in selected_indices)
             fraud_total = max(sum(1 for label in truth if label == "FRAUD"), 1)
             rarity_total = max(sum(1 for label in truth if label == "RARITY"), 1)
-            method["rounds"].append({
+            round_record = {
                 "round": round_index,
                 "main_accuracy": after_main["accuracy"],
                 "corner_accuracy": after_corner["accuracy"],
@@ -1269,7 +1310,27 @@ def run_real_gradient_benchmark(
                 "rarity_retention_rate": selected_truth.get("RARITY", 0) / rarity_total,
                 "truth_counts": dict(Counter(truth)),
                 "predicted_counts": dict(Counter(predicted)),
-            })
+            }
+            if method_id == "cornerdrive":
+                fraud_family_total = Counter(
+                    item.attack_family
+                    for item, label in zip(round_gradients, truth)
+                    if label == "FRAUD"
+                )
+                fraud_family_selected = Counter(
+                    round_gradients[idx].attack_family
+                    for idx in selected_indices
+                    if truth[idx] == "FRAUD"
+                )
+                round_record.update({
+                    "l1_router_mode": l1_router_mode,
+                    "l1_suspect_total": l1_suspect_total,
+                    "l1_review_rate": l1_suspect_total / len(raw_gradients),
+                    "l1_routing_reasons": l1_routing_reasons,
+                    "fraud_truth_attack_families": dict(fraud_family_total),
+                    "selected_fraud_attack_families": dict(fraud_family_selected),
+                })
+            method["rounds"].append(round_record)
 
     results_by_method: dict[str, Any] = {}
     for method_id, method in methods.items():
@@ -1292,6 +1353,22 @@ def run_real_gradient_benchmark(
                 all_predictions["cornerdrive"],
                 "RARITY",
             )
+            summary["l1_suspect_total_avg"] = mean(
+                row.get("l1_suspect_total", 0) for row in rows
+            )
+            summary["l1_review_rate_avg"] = mean(
+                row.get("l1_review_rate", 0.0) for row in rows
+            )
+            fraud_family_total: Counter[str] = Counter()
+            fraud_family_selected: Counter[str] = Counter()
+            for row in rows:
+                fraud_family_total.update(row.get("fraud_truth_attack_families", {}))
+                fraud_family_selected.update(row.get("selected_fraud_attack_families", {}))
+            summary["fraud_survival_by_attack_family"] = {
+                family: fraud_family_selected.get(family, 0) / total
+                for family, total in fraud_family_total.items()
+                if total
+            }
         results_by_method[method_id] = {
             "id": method_id,
             "label": method["label"],
@@ -1328,6 +1405,7 @@ def write_real_gradient_outputs(result: dict[str, Any], output_dir: Path) -> Non
 
     if rows:
         with (output_dir / "real_gradient_rounds.csv").open("w", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=sorted(rows[0].keys()))
+            fieldnames = sorted({key for row in rows for key in row})
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(rows)

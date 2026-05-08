@@ -6,6 +6,7 @@ from policy_agent.analysis.real_gradient_benchmark import (
     RealGradientBenchmarkConfig,
     load_bdd100k_clients,
     load_real_clients,
+    make_real_data_adaptive_policy,
     run_real_gradient_benchmark,
 )
 
@@ -127,3 +128,35 @@ def test_bdd100k_source_runs_real_gradient_smoke(tmp_path):
     assert result["dataset"]["input_dim"] == 8 * 8 * 3
     for method_id in ("krum", "fltrust", "zeno", "zenopp", "cornerdrive"):
         assert result["methods"][method_id]["round_records"]
+
+
+def test_real_data_adaptive_profile_routes_cornerdrive_l1v3(tmp_path):
+    label_file, image_root = _make_bdd_fixture(tmp_path)
+    config = RealGradientBenchmarkConfig(
+        source="bdd100k",
+        bdd_data_dir=str(tmp_path),
+        bdd_label_file=str(label_file),
+        bdd_image_dir=str(image_root),
+        bdd_image_size=8,
+        bdd_corner_values="rainy,snowy",
+        max_clients=3,
+        min_samples_per_client=2,
+        max_samples_per_client=2,
+        clients_per_round=3,
+        rounds=1,
+        pretrain_steps=1,
+        local_batch_size=2,
+        attack_fraction=0.0,
+        corner_harm_fraction=0.0,
+        noise_fraction=0.0,
+        cornerdrive_l1_mode="v3_m2_norm_sign_fixed",
+        cornerdrive_l1_norm_mad_threshold=2.5,
+        cornerdrive_l1_sign_threshold=0.55,
+    )
+
+    result = run_real_gradient_benchmark(config, policy=make_real_data_adaptive_policy())
+    round_record = result["methods"]["cornerdrive"]["round_records"][0]
+
+    assert result["policy"]["theta_tol"] == 0.02
+    assert round_record["l1_router_mode"] == "v3_m2_norm_sign_fixed"
+    assert "l1_review_rate" in round_record
