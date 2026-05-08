@@ -85,6 +85,8 @@ def parse_args() -> argparse.Namespace:
             "auto",
             "leaf_femnist",
             "femnist",
+            "bdd",
+            "bdd100k",
             "mnist",
             "fashionmnist",
             "torchvision_mnist",
@@ -92,6 +94,17 @@ def parse_args() -> argparse.Namespace:
         ],
     )
     parser.add_argument("--leaf-data-dir", default="data/real/femnist")
+    parser.add_argument("--bdd-data-dir", default="data/real/bdd100k")
+    parser.add_argument("--bdd-label-file", default="")
+    parser.add_argument("--bdd-image-dir", default="")
+    parser.add_argument("--bdd-image-size", type=int, default=32)
+    parser.add_argument(
+        "--bdd-target-attribute",
+        choices=["weather", "timeofday", "scene"],
+        default="weather",
+    )
+    parser.add_argument("--bdd-client-group", default="weather_timeofday")
+    parser.add_argument("--bdd-corner-values", default="rainy,snowy,foggy")
     parser.add_argument("--data-dir", default="data/real")
     parser.add_argument("--download", action="store_true")
     parser.add_argument("--max-real-clients", type=int, default=80)
@@ -240,6 +253,13 @@ def real_gradient_rows(args: argparse.Namespace) -> tuple[list[dict[str, Any]], 
     config = RealGradientBenchmarkConfig(
         source=args.source,
         leaf_data_dir=args.leaf_data_dir,
+        bdd_data_dir=args.bdd_data_dir,
+        bdd_label_file=args.bdd_label_file,
+        bdd_image_dir=args.bdd_image_dir,
+        bdd_image_size=args.bdd_image_size,
+        bdd_target_attribute=args.bdd_target_attribute,
+        bdd_client_group=args.bdd_client_group,
+        bdd_corner_values=args.bdd_corner_values,
         data_dir=args.data_dir,
         download=args.download,
         max_clients=args.max_real_clients,
@@ -257,6 +277,10 @@ def real_gradient_rows(args: argparse.Namespace) -> tuple[list[dict[str, Any]], 
     clients, dataset_info = load_real_clients(config)
     input_dim = int(clients[0].inputs.view(clients[0].inputs.size(0), -1).size(1))
     output_dim = int(max(int(client.targets.max().item()) for client in clients) + 1)
+    corner_labels = tuple(
+        int(label)
+        for label in dataset_info.get("corner_labels", list(DEFAULT_CORNER_LABELS))
+    )
     model = _pretrain_model(
         clients[: max(args.real_clients_per_round, 8)],
         input_dim=input_dim,
@@ -265,7 +289,7 @@ def real_gradient_rows(args: argparse.Namespace) -> tuple[list[dict[str, Any]], 
         batch_size=args.local_batch_size,
         seed=args.real_seed,
     )
-    main_dataset, corner_dataset = _split_reference_clients(clients)
+    main_dataset, corner_dataset = _split_reference_clients(clients, corner_labels)
     auditor = DualChannelAuditor(
         model=copy.deepcopy(model),
         main_dataset=main_dataset,
@@ -297,7 +321,7 @@ def real_gradient_rows(args: argparse.Namespace) -> tuple[list[dict[str, Any]], 
             )
             label = (
                 "REAL_CORNER_HEAVY"
-                if _client_is_corner_heavy(client, DEFAULT_CORNER_LABELS)
+                if _client_is_corner_heavy(client, corner_labels)
                 else "REAL_CLIENT"
             )
             rows.append(
@@ -330,7 +354,7 @@ def real_gradient_rows(args: argparse.Namespace) -> tuple[list[dict[str, Any]], 
             "client_count": len(clients),
             "input_dim": input_dim,
             "output_dim": output_dim,
-            "corner_labels": list(DEFAULT_CORNER_LABELS),
+            "corner_labels": list(corner_labels),
         },
     }
 

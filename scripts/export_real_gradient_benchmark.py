@@ -26,15 +26,37 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Build a real-data gradient benchmark. Prefer LEAF/FEMNIST JSON via "
-            "--source leaf_femnist; otherwise use torchvision MNIST/FashionMNIST."
+            "--source leaf_femnist; use --source bdd100k for IoV image "
+            "attribute pseudo-clients; otherwise use torchvision MNIST/FashionMNIST."
         )
     )
     parser.add_argument(
         "--source",
         default="auto",
-        choices=["auto", "leaf_femnist", "femnist", "mnist", "fashionmnist", "torchvision_mnist", "torchvision_fashionmnist"],
+        choices=[
+            "auto",
+            "leaf_femnist",
+            "femnist",
+            "bdd",
+            "bdd100k",
+            "mnist",
+            "fashionmnist",
+            "torchvision_mnist",
+            "torchvision_fashionmnist",
+        ],
     )
     parser.add_argument("--leaf-data-dir", default="data/real/femnist")
+    parser.add_argument("--bdd-data-dir", default="data/real/bdd100k")
+    parser.add_argument("--bdd-label-file", default="")
+    parser.add_argument("--bdd-image-dir", default="")
+    parser.add_argument("--bdd-image-size", type=int, default=32)
+    parser.add_argument(
+        "--bdd-target-attribute",
+        choices=["weather", "timeofday", "scene"],
+        default="weather",
+    )
+    parser.add_argument("--bdd-client-group", default="weather_timeofday")
+    parser.add_argument("--bdd-corner-values", default="rainy,snowy,foggy")
     parser.add_argument("--data-dir", default="data/real")
     parser.add_argument("--download", action="store_true")
     parser.add_argument("--max-clients", type=int, default=80)
@@ -63,6 +85,13 @@ def main() -> None:
     config = RealGradientBenchmarkConfig(
         source=args.source,
         leaf_data_dir=args.leaf_data_dir,
+        bdd_data_dir=args.bdd_data_dir,
+        bdd_label_file=args.bdd_label_file,
+        bdd_image_dir=args.bdd_image_dir,
+        bdd_image_size=args.bdd_image_size,
+        bdd_target_attribute=args.bdd_target_attribute,
+        bdd_client_group=args.bdd_client_group,
+        bdd_corner_values=args.bdd_corner_values,
         data_dir=args.data_dir,
         download=args.download,
         max_clients=args.max_clients,

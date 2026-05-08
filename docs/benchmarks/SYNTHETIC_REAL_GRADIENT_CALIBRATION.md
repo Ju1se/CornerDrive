@@ -8,8 +8,8 @@ archetypes.
 The script compares:
 
 - controlled ALG synthetic gradients, grouped by archetype;
-- real client-SGD gradients derived from LEAF/FEMNIST if available, otherwise
-  from torchvision MNIST/FashionMNIST non-IID shards.
+- real client-SGD gradients derived from LEAF/FEMNIST, BDD100K pseudo-clients,
+  or torchvision MNIST/FashionMNIST non-IID shards.
 
 Because the ALG model and the real-data model can have different parameter
 dimensions and semantics, the exporter does **not** compare raw gradient vectors
@@ -60,6 +60,23 @@ python scripts/export_synthetic_real_gradient_calibration.py \
   --output-dir results/synthetic_real_gradient_calibration_leaf
 ```
 
+With BDD100K driving images:
+
+```bash
+python scripts/export_synthetic_real_gradient_calibration.py \
+  --source bdd100k \
+  --bdd-data-dir data/real/bdd100k \
+  --bdd-target-attribute weather \
+  --bdd-client-group weather_timeofday \
+  --bdd-corner-values rainy,snowy,foggy \
+  --output-dir results/synthetic_real_gradient_calibration_bdd100k
+```
+
+`--bdd-target-attribute` can be `weather`, `timeofday`, or `scene`. The default
+weather setting treats rainy, snowy, and foggy frames as corner-heavy labels.
+For time-of-day calibration, use `--bdd-target-attribute timeofday
+--bdd-corner-values night`.
+
 ## Outputs
 
 - `synthetic_real_gradient_features.csv`: per-gradient scalar diagnostics.
@@ -83,6 +100,8 @@ claims such as:
 - real client-SGD gradients have comparable or different norm/deviation regimes
   from ALG Honest/Rarity updates;
 - real corner-heavy clients are or are not naturally visible to L1;
+- BDD100K rainy/night/scene pseudo-clients do or do not resemble ALG Rarity,
+  Honest, Noise, or Fraud regimes under scalar diagnostics;
 - ALG thresholds may need recalibration before real deployment.
 
 It should not be reported as a full IoV deployment result. Real vehicular data,

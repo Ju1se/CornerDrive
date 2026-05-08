@@ -20,7 +20,7 @@ import json
 import random
 import sys
 from collections import Counter
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
@@ -53,6 +53,7 @@ class RealClient:
     client_id: str
     inputs: torch.Tensor
     targets: torch.Tensor
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def label_histogram(self) -> dict[int, int]:
@@ -78,6 +79,13 @@ class ClientGradient:
 class RealGradientBenchmarkConfig:
     source: str = "auto"
     leaf_data_dir: str = "data/real/femnist"
+    bdd_data_dir: str = "data/real/bdd100k"
+    bdd_label_file: str = ""
+    bdd_image_dir: str = ""
+    bdd_image_size: int = 32
+    bdd_target_attribute: str = "weather"
+    bdd_client_group: str = "weather_timeofday"
+    bdd_corner_values: str = "rainy,snowy,foggy"
     data_dir: str = "data/real"
     download: bool = False
     max_clients: int = 80
@@ -181,6 +189,7 @@ def load_leaf_femnist_clients(
                     "root": str(root),
                     "files_scanned": len(_leaf_json_files(root)),
                     "real_client_partitions": True,
+                    "corner_labels": list(DEFAULT_CORNER_LABELS),
                 }
 
     if not clients:
@@ -191,6 +200,7 @@ def load_leaf_femnist_clients(
         "root": str(root),
         "files_scanned": len(_leaf_json_files(root)),
         "real_client_partitions": True,
+        "corner_labels": list(DEFAULT_CORNER_LABELS),
     }
 
 
@@ -282,12 +292,276 @@ def load_torchvision_clients(
         "root": str(root),
         "real_client_partitions": False,
         "partition_note": "real samples with deterministic non-IID client shards",
+        "corner_labels": list(DEFAULT_CORNER_LABELS),
+    }
+
+
+BDD_ATTRIBUTE_CHOICES = {"weather", "timeofday", "scene"}
+
+
+def _resolve_repo_path(raw: str) -> Path:
+    candidate = Path(raw)
+    return candidate if candidate.is_absolute() else PROJECT_ROOT / candidate
+
+
+def _bdd_label_files(root: Path, explicit: str) -> list[Path]:
+    if explicit:
+        candidate = _resolve_repo_path(explicit)
+        if not candidate.exists():
+            raise FileNotFoundError(f"BDD100K label file does not exist: {candidate}")
+        return [candidate]
+
+    patterns = [
+        "labels/bdd100k_labels_images_train.json",
+        "labels/bdd100k_labels_images_val.json",
+        "labels/*labels*images*.json",
+        "labels/100k/train.json",
+        "labels/100k/val.json",
+        "labels/**/*.json",
+        "**/*labels*images*.json",
+    ]
+    files: list[Path] = []
+    for pattern in patterns:
+        files.extend(root.glob(pattern))
+    return sorted(set(path for path in files if path.is_file()))
+
+
+def _bdd_image_roots(root: Path, explicit: str) -> list[Path]:
+    if explicit:
+        candidate = _resolve_repo_path(explicit)
+        if not candidate.exists():
+            raise FileNotFoundError(f"BDD100K image directory does not exist: {candidate}")
+        return [candidate]
+
+    candidates = [
+        root / "images" / "100k" / "train",
+        root / "images" / "100k" / "val",
+        root / "images" / "10k" / "train",
+        root / "images" / "10k" / "val",
+        root / "images" / "train",
+        root / "images" / "val",
+        root / "images",
+        root,
+    ]
+    return [path for path in candidates if path.exists()]
+
+
+def _bdd_group_key(attributes: dict[str, Any], client_group: str) -> str:
+    fields = [part.strip() for part in client_group.split("_") if part.strip()]
+    if not fields:
+        fields = ["weather", "timeofday"]
+    values = [str(attributes.get(field, "unknown")).strip().lower() for field in fields]
+    return "|".join(value or "unknown" for value in values)
+
+
+def _bdd_image_tensor(path: Path, image_size: int) -> torch.Tensor:
+    try:
+        from PIL import Image
+    except ImportError as exc:
+        raise RuntimeError("Pillow is required to load BDD100K image files") from exc
+
+    with Image.open(path) as image:
+        image = image.convert("RGB").resize((image_size, image_size))
+        array = np.asarray(image, dtype=np.float32) / 255.0
+    return torch.from_numpy(array).view(-1)
+
+
+def _find_bdd_image(
+    name: str,
+    image_roots: list[Path],
+    image_index: dict[str, Path],
+) -> Path | None:
+    named_path = Path(name)
+    for root in image_roots:
+        candidate = root / named_path
+        if candidate.exists():
+            return candidate
+        candidate = root / named_path.name
+        if candidate.exists():
+            return candidate
+
+    if not image_index:
+        for root in image_roots:
+            for path in root.rglob("*"):
+                if path.suffix.lower() in {".jpg", ".jpeg", ".png"}:
+                    image_index.setdefault(path.name, path)
+    return image_index.get(named_path.name)
+
+
+def _load_bdd_label_records(label_files: list[Path]) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for label_file in label_files:
+        payload = json.loads(label_file.read_text())
+        if isinstance(payload, list):
+            records.extend(record for record in payload if isinstance(record, dict))
+        elif isinstance(payload, dict):
+            for key in ("frames", "labels", "annotations"):
+                values = payload.get(key)
+                if isinstance(values, list):
+                    records.extend(record for record in values if isinstance(record, dict))
+                    break
+    return records
+
+
+def _parse_corner_values(raw: str) -> set[str]:
+    return {
+        part.strip().lower()
+        for part in raw.split(",")
+        if part.strip()
+    }
+
+
+def load_bdd100k_clients(
+    root: Path,
+    *,
+    label_file: str = "",
+    image_dir: str = "",
+    image_size: int = 32,
+    target_attribute: str = "weather",
+    client_group: str = "weather_timeofday",
+    corner_values: str = "rainy,snowy,foggy",
+    max_clients: int,
+    min_samples_per_client: int,
+    max_samples_per_client: int,
+    seed: int,
+) -> tuple[list[RealClient], dict[str, Any]]:
+    """Load BDD100K image labels as pseudo-clients for IoV gradient calibration.
+
+    BDD100K does not ship federated client ids. This adapter constructs
+    deterministic pseudo-clients from frame attributes such as weather,
+    time-of-day, and scene. That is a domain-relevance calibration path, not a
+    claim of real vehicle-level federation.
+    """
+
+    if not root.exists():
+        raise FileNotFoundError(f"BDD100K data directory does not exist: {root}")
+
+    target = target_attribute.strip().lower()
+    if target not in BDD_ATTRIBUTE_CHOICES:
+        supported = ", ".join(sorted(BDD_ATTRIBUTE_CHOICES))
+        raise ValueError(f"Unsupported BDD100K target attribute {target_attribute!r}: {supported}")
+
+    label_files = _bdd_label_files(root, label_file)
+    if not label_files:
+        raise FileNotFoundError(
+            "No BDD100K label JSON found. Expected files such as "
+            "labels/bdd100k_labels_images_train.json under "
+            f"{root} or pass --bdd-label-file."
+        )
+    image_roots = _bdd_image_roots(root, image_dir)
+    if not image_roots:
+        raise FileNotFoundError(
+            f"No BDD100K image directory found under {root}; pass --bdd-image-dir."
+        )
+
+    records = _load_bdd_label_records(label_files)
+    rng = random.Random(seed)
+    rng.shuffle(records)
+    image_index: dict[str, Path] = {}
+    class_to_id: dict[str, int] = {}
+    grouped: dict[str, list[tuple[Path, int, dict[str, Any]]]] = {}
+
+    for record in records:
+        name = str(record.get("name", "")).strip()
+        attributes = record.get("attributes", {})
+        if not name or not isinstance(attributes, dict):
+            continue
+        target_value = str(attributes.get(target, "")).strip().lower()
+        if not target_value or target_value in {"undefined", "unknown", "none"}:
+            continue
+        image_path = _find_bdd_image(name, image_roots, image_index)
+        if image_path is None:
+            continue
+
+        class_id = class_to_id.setdefault(target_value, len(class_to_id))
+        group_key = _bdd_group_key(attributes, client_group)
+        grouped.setdefault(group_key, []).append(
+            (
+                image_path,
+                class_id,
+                {
+                    "name": name,
+                    "attributes": {
+                        key: str(value)
+                        for key, value in attributes.items()
+                    },
+                    "target_value": target_value,
+                    "image_path": str(image_path),
+                },
+            )
+        )
+
+    clients: list[RealClient] = []
+    for group_key, items in sorted(grouped.items()):
+        rng.shuffle(items)
+        for chunk_id, start in enumerate(range(0, len(items), max_samples_per_client)):
+            chunk = items[start:start + max_samples_per_client]
+            if len(chunk) < min_samples_per_client:
+                continue
+            inputs = torch.stack([_bdd_image_tensor(item[0], image_size) for item in chunk])
+            targets = torch.tensor([item[1] for item in chunk], dtype=torch.long)
+            clients.append(
+                RealClient(
+                    client_id=f"bdd100k:{client_group}:{group_key}:{chunk_id:03d}",
+                    inputs=inputs,
+                    targets=targets,
+                    metadata={
+                        "client_group": client_group,
+                        "group_key": group_key,
+                        "records": [item[2] for item in chunk],
+                    },
+                )
+            )
+            if len(clients) >= max_clients:
+                break
+        if len(clients) >= max_clients:
+            break
+
+    if not clients:
+        raise ValueError(
+            "No usable BDD100K pseudo-clients were built. Check image paths, "
+            "label file, min/max samples, and target attribute."
+        )
+
+    corner_value_set = _parse_corner_values(corner_values)
+    corner_label_ids = [
+        class_id
+        for value, class_id in sorted(class_to_id.items(), key=lambda item: item[1])
+        if value in corner_value_set
+    ]
+    if not corner_label_ids and class_to_id:
+        # Keep the benchmark runnable even for tiny smoke datasets that do not
+        # contain the default rainy/snowy/foggy labels.
+        corner_label_ids = [max(class_to_id.values())]
+
+    id_to_class = {
+        class_id: value
+        for value, class_id in class_to_id.items()
+    }
+    return clients, {
+        "source": "bdd100k",
+        "root": str(root),
+        "label_files": [str(path) for path in label_files],
+        "image_roots": [str(path) for path in image_roots],
+        "real_client_partitions": False,
+        "partition_note": (
+            "BDD100K image frames grouped into deterministic pseudo-clients by "
+            f"{client_group}; use as IoV/domain calibration evidence."
+        ),
+        "target_attribute": target,
+        "client_group": client_group,
+        "image_size": image_size,
+        "class_to_id": class_to_id,
+        "id_to_class": id_to_class,
+        "corner_values": sorted(corner_value_set),
+        "corner_labels": corner_label_ids,
     }
 
 
 def load_real_clients(config: RealGradientBenchmarkConfig) -> tuple[list[RealClient], dict[str, Any]]:
     source = config.source.lower()
     leaf_root = PROJECT_ROOT / config.leaf_data_dir
+    bdd_root = PROJECT_ROOT / config.bdd_data_dir
     data_root = PROJECT_ROOT / config.data_dir
 
     if source in {"auto", "leaf", "leaf_femnist", "femnist"} and leaf_root.exists():
@@ -308,6 +582,40 @@ def load_real_clients(config: RealGradientBenchmarkConfig) -> tuple[list[RealCli
             max_clients=config.max_clients,
             min_samples_per_client=config.min_samples_per_client,
             max_samples_per_client=config.max_samples_per_client,
+        )
+
+    if source in {"auto", "bdd", "bdd100k"} and bdd_root.exists():
+        try:
+            return load_bdd100k_clients(
+                bdd_root,
+                label_file=config.bdd_label_file,
+                image_dir=config.bdd_image_dir,
+                image_size=config.bdd_image_size,
+                target_attribute=config.bdd_target_attribute,
+                client_group=config.bdd_client_group,
+                corner_values=config.bdd_corner_values,
+                max_clients=config.max_clients,
+                min_samples_per_client=config.min_samples_per_client,
+                max_samples_per_client=config.max_samples_per_client,
+                seed=config.seed,
+            )
+        except Exception:
+            if source != "auto":
+                raise
+
+    if source in {"bdd", "bdd100k"}:
+        return load_bdd100k_clients(
+            bdd_root,
+            label_file=config.bdd_label_file,
+            image_dir=config.bdd_image_dir,
+            image_size=config.bdd_image_size,
+            target_attribute=config.bdd_target_attribute,
+            client_group=config.bdd_client_group,
+            corner_values=config.bdd_corner_values,
+            max_clients=config.max_clients,
+            min_samples_per_client=config.min_samples_per_client,
+            max_samples_per_client=config.max_samples_per_client,
+            seed=config.seed,
         )
 
     fallback_source = "mnist" if source == "auto" else source
@@ -523,10 +831,11 @@ def _build_round_gradients(
     corner_reference: np.ndarray,
     rng: random.Random,
     config: RealGradientBenchmarkConfig,
+    corner_labels: tuple[int, ...],
 ) -> list[ClientGradient]:
     gradients: list[ClientGradient] = []
     for client in round_clients:
-        ground_truth = "RARITY" if _client_is_corner_heavy(client, DEFAULT_CORNER_LABELS) else "HONEST"
+        ground_truth = "RARITY" if _client_is_corner_heavy(client, corner_labels) else "HONEST"
         gradients.append(
             ClientGradient(
                 client_id=client.client_id,
@@ -613,6 +922,10 @@ def run_real_gradient_benchmark(
 
     input_dim = int(clients[0].inputs.view(clients[0].inputs.size(0), -1).size(1))
     output_dim = int(max(int(client.targets.max().item()) for client in clients) + 1)
+    corner_labels = tuple(
+        int(label)
+        for label in dataset_info.get("corner_labels", list(DEFAULT_CORNER_LABELS))
+    )
     initial_model = _pretrain_model(
         clients[: max(config.clients_per_round, 8)],
         input_dim=input_dim,
@@ -621,7 +934,7 @@ def run_real_gradient_benchmark(
         batch_size=config.local_batch_size,
         seed=config.seed,
     )
-    main_dataset, corner_dataset = _split_reference_clients(clients)
+    main_dataset, corner_dataset = _split_reference_clients(clients, corner_labels)
     main_reference = _gradient_for_dataset(
         initial_model,
         main_dataset,
@@ -657,6 +970,7 @@ def run_real_gradient_benchmark(
             corner_reference=corner_reference,
             rng=rng,
             config=config,
+            corner_labels=corner_labels,
         )
         raw_gradients = [item.gradient for item in round_gradients]
         vehicle_ids = [
@@ -768,7 +1082,7 @@ def run_real_gradient_benchmark(
             "client_count": len(clients),
             "input_dim": input_dim,
             "output_dim": output_dim,
-            "corner_labels": list(DEFAULT_CORNER_LABELS),
+            "corner_labels": list(corner_labels),
         },
         "config": asdict(config),
         "policy": policy.model_dump(mode="json"),
