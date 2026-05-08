@@ -98,6 +98,50 @@ Outputs:
 - `real_gradient_benchmark_summary.json`
 - `real_gradient_rounds.csv`
 
+## Larger Reliability Runs
+
+For thesis-grade evidence, use the reliability exporter instead of relying on
+one seed. It increases the default real-data scale to 160 clients, 64 samples
+per client, 24 clients per round, 12 rounds, and 3 seeds per dataset, then
+exports per-run metrics plus mean, standard deviation, and 95% confidence
+intervals:
+
+```bash
+python scripts/export_real_gradient_reliability_benchmark.py \
+  --sources mnist,fashionmnist,femnist \
+  --seeds 20260507,20260508,20260509 \
+  --max-clients 160 \
+  --max-samples-per-client 64 \
+  --clients-per-round 24 \
+  --rounds 12 \
+  --pretrain-steps 60 \
+  --output-dir results/real_gradient_reliability
+```
+
+Outputs:
+
+- `real_gradient_reliability_runs.csv`
+- `real_gradient_reliability_summary.csv`
+- `real_gradient_reliability_summary.json`
+- per-run `real_gradient_benchmark_summary.json` and `real_gradient_rounds.csv`
+  under `runs/<source>/seed_<seed>/`
+
+The current local expanded run uses a slightly smaller but completed profile
+(`120` clients, `48` samples per client, `20` clients per round, `10` rounds,
+and `3` seeds). This raises the evidence from 128 client-round observations per
+dataset in the original single-seed run to 600 observations per dataset:
+
+| Dataset | CornerDrive main acc | Corner acc | Fraud survival | Rarity retention | L1 review |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| MNIST | 0.7214 +/- 0.0237 | 0.8607 +/- 0.0371 | 0.0267 +/- 0.0523 | 0.7131 +/- 0.0803 | 0.8083 +/- 0.0229 |
+| FashionMNIST | 0.6249 +/- 0.0119 | 0.9189 +/- 0.0073 | 0.1000 +/- 0.0987 | 0.6568 +/- 0.0201 | 0.8183 +/- 0.0255 |
+| LEAF/FEMNIST | 0.0659 +/- 0.0090 | 0.3352 +/- 0.0172 | 0.0200 +/- 0.0392 | 0.9667 +/- 0.0653 | 0.8267 +/- 0.0118 |
+
+Across all three datasets, this completed expanded run covers 1,800
+client-round observations, including 450 fraud observations and 581 rarity
+observations. CornerDrive averages 0.0489 fraud survival, 0.7789 rarity
+retention, and 0.8178 L1 review coverage.
+
 ## Interpretation
 
 The benchmark reports FedAvg, GeoMed, Multi-Krum, FLTrust, Zeno, Zeno++, and

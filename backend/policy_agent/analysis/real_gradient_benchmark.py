@@ -1382,6 +1382,10 @@ def run_real_gradient_benchmark(
         "dataset": {
             **dataset_info,
             "client_count": len(clients),
+            "client_sample_count": sum(client.size for client in clients),
+            "client_sample_min": min(client.size for client in clients),
+            "client_sample_max": max(client.size for client in clients),
+            "client_sample_avg": mean(client.size for client in clients),
             "input_dim": input_dim,
             "output_dim": output_dim,
             "corner_labels": list(corner_labels),
