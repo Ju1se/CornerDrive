@@ -83,9 +83,17 @@ Outputs:
 
 ## Interpretation
 
-The benchmark reports FedAvg, GeoMed, Multi-Krum, and CornerDrive on the same
-round schedule. Core metrics are main accuracy, corner accuracy, fraud survival,
-rarity retention, and CornerDrive fraud/rarity precision and recall.
+The benchmark reports FedAvg, GeoMed, Multi-Krum, FLTrust, Zeno, Zeno++, and
+CornerDrive on the same round schedule. FLTrust uses a root/reference gradient
+from the validation slice, Zeno uses validation-loss descent scoring, and
+Zeno++ uses the same score as a synchronous score-weighted benchmark variant.
+Core metrics are main accuracy, corner accuracy, fraud survival, rarity
+retention, and CornerDrive fraud/rarity precision and recall.
+
+`--rarity-label-fraction-threshold` controls when a real client is treated as
+corner/rarity-heavy. The default `0.30` is intentionally below a strict
+majority so deterministic two-label torchvision shards and mixed FEMNIST writer
+clients can contribute rarity-retention evidence.
 
 LEAF/FEMNIST should be treated as the primary federated-client benchmark because
 it keeps client boundaries real. BDD100K should be treated as IoV/domain

@@ -62,6 +62,8 @@ contracts/cache/
 contracts/typechain-types/
 
 # Data (large files)
+data/real/
+data/sources/
 data/models/*.pt
 data/models/*.pth
 *.pkl

@@ -99,8 +99,11 @@ class RealGradientBenchmarkConfig:
     attack_fraction: float = 0.20
     corner_harm_fraction: float = 0.05
     noise_fraction: float = 0.05
+    rarity_label_fraction_threshold: float = 0.30
     sign_flip_scale: float = 3.0
     corner_harm_scale: float = 2.0
+    zeno_score_penalty: float = 1e-4
+    zenopp_score_temperature: float = 0.05
 
 
 class TinyImageMLP(nn.Module):
@@ -815,12 +818,188 @@ def _multi_krum_indices(gradients: list[np.ndarray], byzantine_budget: int = 2) 
     return [idx for _score, idx in scores[:selection_count]]
 
 
-def _client_is_corner_heavy(client: RealClient, corner_labels: tuple[int, ...]) -> bool:
+def _estimated_byzantine_budget(config: RealGradientBenchmarkConfig, gradient_count: int) -> int:
+    expected = int(round(gradient_count * (config.attack_fraction + config.corner_harm_fraction)))
+    return max(1, min(expected, max(gradient_count - 1, 1)))
+
+
+def _zero_gradient_like(gradients: list[np.ndarray]) -> np.ndarray:
+    return np.zeros_like(gradients[0])
+
+
+def _fltrust_aggregate(
+    gradients: list[np.ndarray],
+    root_gradient: np.ndarray,
+) -> tuple[np.ndarray, set[int], list[float]]:
+    """Aggregate client gradients with FLTrust-style cosine trust bootstrapping."""
+    eps = 1e-12
+    root_norm = float(np.linalg.norm(root_gradient))
+    if root_norm <= eps:
+        return _zero_gradient_like(gradients), set(), [0.0 for _ in gradients]
+
+    scaled_gradients: list[np.ndarray] = []
+    trust_scores: list[float] = []
+    selected_indices: set[int] = set()
+    for idx, gradient in enumerate(gradients):
+        grad_norm = float(np.linalg.norm(gradient))
+        if grad_norm <= eps:
+            trust_scores.append(0.0)
+            scaled_gradients.append(np.zeros_like(gradient))
+            continue
+
+        cosine = float(np.dot(gradient, root_gradient) / (grad_norm * root_norm + eps))
+        trust = max(cosine, 0.0)
+        trust_scores.append(trust)
+        if trust > 0.0:
+            selected_indices.add(idx)
+        scaled_gradients.append((gradient / grad_norm) * root_norm)
+
+    total_trust = sum(trust_scores)
+    if total_trust <= eps:
+        return _zero_gradient_like(gradients), selected_indices, trust_scores
+
+    aggregated = sum(
+        trust * scaled
+        for trust, scaled in zip(trust_scores, scaled_gradients)
+    ) / total_trust
+    return aggregated, selected_indices, trust_scores
+
+
+def _loss_on_dataset(
+    model: nn.Module,
+    dataset: torch.utils.data.Dataset,
+    *,
+    batch_size: int,
+) -> float:
+    criterion = nn.CrossEntropyLoss(reduction="sum")
+    total_loss = 0.0
+    total_samples = 0
+    with torch.no_grad():
+        for inputs, targets in torch.utils.data.DataLoader(dataset, batch_size=batch_size):
+            outputs = model(inputs)
+            total_loss += float(criterion(outputs, targets).item())
+            total_samples += int(inputs.size(0))
+    return total_loss / max(total_samples, 1)
+
+
+def _zeno_scores(
+    model: nn.Module,
+    gradients: list[np.ndarray],
+    validation_dataset: torch.utils.data.Dataset,
+    *,
+    batch_size: int,
+    learning_rate: float,
+    score_penalty: float,
+) -> list[float]:
+    """Score gradients by validation loss decrease minus a norm penalty."""
+    before_loss = _loss_on_dataset(model, validation_dataset, batch_size=batch_size)
+    scores: list[float] = []
+    for gradient in gradients:
+        candidate = _apply_gradient(model, gradient, learning_rate)
+        after_loss = _loss_on_dataset(candidate, validation_dataset, batch_size=batch_size)
+        norm_penalty = score_penalty * float(np.dot(gradient, gradient))
+        scores.append(before_loss - after_loss - norm_penalty)
+    return scores
+
+
+def _zeno_aggregate(
+    gradients: list[np.ndarray],
+    scores: list[float],
+    *,
+    byzantine_budget: int,
+) -> tuple[np.ndarray, set[int]]:
+    selection_count = max(1, len(gradients) - byzantine_budget)
+    ranked = sorted(range(len(gradients)), key=lambda idx: (scores[idx], -idx), reverse=True)
+    selected_indices = set(ranked[:selection_count])
+    return _mean_gradient([gradients[idx] for idx in sorted(selected_indices)]), selected_indices
+
+
+def _zenopp_aggregate(
+    gradients: list[np.ndarray],
+    scores: list[float],
+    *,
+    temperature: float,
+) -> tuple[np.ndarray, set[int], list[float]]:
+    """Synchronous Zeno++-style score-weighted aggregation for benchmark parity."""
+    positive_scores = np.array([max(score, 0.0) for score in scores], dtype=np.float64)
+    selected_indices = {idx for idx, score in enumerate(positive_scores) if score > 0.0}
+    if not selected_indices:
+        best_idx = max(range(len(scores)), key=lambda idx: (scores[idx], -idx))
+        return gradients[best_idx].copy(), {best_idx}, [
+            1.0 if idx == best_idx else 0.0
+            for idx in range(len(scores))
+        ]
+
+    temp = max(float(temperature), 1e-6)
+    logits = positive_scores / temp
+    logits -= float(np.max(logits))
+    raw_weights = np.exp(logits)
+    raw_weights[positive_scores <= 0.0] = 0.0
+    weights = raw_weights / max(float(np.sum(raw_weights)), 1e-12)
+    aggregated = sum(float(weight) * gradient for weight, gradient in zip(weights, gradients))
+    return aggregated, selected_indices, [float(weight) for weight in weights]
+
+
+def _client_is_corner_heavy(
+    client: RealClient,
+    corner_labels: tuple[int, ...],
+    threshold: float = 0.30,
+) -> bool:
     labels = client.targets.tolist()
     if not labels:
         return False
     corner_count = sum(1 for label in labels if int(label) in corner_labels)
-    return corner_count / len(labels) >= 0.60
+    return corner_count / len(labels) >= threshold
+
+
+def _build_attack_plan(
+    *,
+    client_count: int,
+    rng: random.Random,
+    config: RealGradientBenchmarkConfig,
+) -> dict[int, str]:
+    indices = list(range(client_count))
+    rng.shuffle(indices)
+    sign_flip_count = int(round(client_count * config.attack_fraction))
+    corner_harm_count = int(round(client_count * config.corner_harm_fraction))
+    noise_count = int(round(client_count * config.noise_fraction))
+
+    plan: dict[int, str] = {}
+    for idx in indices[:sign_flip_count]:
+        plan[idx] = "sign_flip_proxy"
+
+    start = sign_flip_count
+    for idx in indices[start:start + corner_harm_count]:
+        plan[idx] = "corner_harm"
+
+    start += corner_harm_count
+    for idx in indices[start:start + noise_count]:
+        plan[idx] = "benign_noise"
+
+    return plan
+
+
+def _round_truth(
+    *,
+    round_clients: list[RealClient],
+    attack_plan: dict[int, str],
+    corner_labels: tuple[int, ...],
+    rarity_threshold: float,
+) -> list[str]:
+    truth: list[str] = []
+    for idx, client in enumerate(round_clients):
+        attack_family = attack_plan.get(idx, "none")
+        if attack_family in {"sign_flip_proxy", "corner_harm"}:
+            truth.append("FRAUD")
+        elif attack_family == "benign_noise":
+            truth.append("NOISE")
+        else:
+            truth.append(
+                "RARITY"
+                if _client_is_corner_heavy(client, corner_labels, rarity_threshold)
+                else "HONEST"
+            )
+    return truth
 
 
 def _build_round_gradients(
@@ -829,66 +1008,44 @@ def _build_round_gradients(
     model: nn.Module,
     main_reference: np.ndarray,
     corner_reference: np.ndarray,
-    rng: random.Random,
+    attack_plan: dict[int, str],
     config: RealGradientBenchmarkConfig,
     corner_labels: tuple[int, ...],
+    noise_seed: int,
 ) -> list[ClientGradient]:
     gradients: list[ClientGradient] = []
-    for client in round_clients:
-        ground_truth = "RARITY" if _client_is_corner_heavy(client, corner_labels) else "HONEST"
+    for idx, client in enumerate(round_clients):
+        ground_truth = (
+            "RARITY"
+            if _client_is_corner_heavy(
+                client,
+                corner_labels,
+                config.rarity_label_fraction_threshold,
+            )
+            else "HONEST"
+        )
+        attack_family = attack_plan.get(idx, "none")
+        gradient = compute_client_gradient(model, client, batch_size=config.local_batch_size)
+        if attack_family == "sign_flip_proxy":
+            gradient = -config.sign_flip_scale * main_reference
+            ground_truth = "FRAUD"
+        elif attack_family == "corner_harm":
+            gradient = 0.35 * main_reference - config.corner_harm_scale * corner_reference
+            ground_truth = "FRAUD"
+        elif attack_family == "benign_noise":
+            noise_rng = np.random.default_rng(noise_seed + idx)
+            gradient = gradient + noise_rng.normal(0.0, 0.05, size=gradient.shape)
+            ground_truth = "NOISE"
+
         gradients.append(
             ClientGradient(
                 client_id=client.client_id,
-                gradient=compute_client_gradient(model, client, batch_size=config.local_batch_size),
+                gradient=gradient,
                 ground_truth=ground_truth,
-                attack_family="none",
+                attack_family=attack_family,
                 sample_count=client.size,
                 label_histogram=client.label_histogram,
             )
-        )
-
-    indices = list(range(len(gradients)))
-    rng.shuffle(indices)
-    sign_flip_count = int(round(len(gradients) * config.attack_fraction))
-    corner_harm_count = int(round(len(gradients) * config.corner_harm_fraction))
-    noise_count = int(round(len(gradients) * config.noise_fraction))
-
-    for idx in indices[:sign_flip_count]:
-        item = gradients[idx]
-        gradients[idx] = ClientGradient(
-            client_id=item.client_id,
-            gradient=-config.sign_flip_scale * main_reference,
-            ground_truth="FRAUD",
-            attack_family="sign_flip_proxy",
-            sample_count=item.sample_count,
-            label_histogram=item.label_histogram,
-        )
-
-    start = sign_flip_count
-    for idx in indices[start:start + corner_harm_count]:
-        item = gradients[idx]
-        harmful = 0.35 * main_reference - config.corner_harm_scale * corner_reference
-        gradients[idx] = ClientGradient(
-            client_id=item.client_id,
-            gradient=harmful,
-            ground_truth="FRAUD",
-            attack_family="corner_harm",
-            sample_count=item.sample_count,
-            label_histogram=item.label_histogram,
-        )
-
-    start += corner_harm_count
-    for idx in indices[start:start + noise_count]:
-        item = gradients[idx]
-        noise_rng = np.random.default_rng(config.seed + idx)
-        noise = noise_rng.normal(0.0, 0.05, size=item.gradient.shape)
-        gradients[idx] = ClientGradient(
-            client_id=item.client_id,
-            gradient=item.gradient + noise,
-            ground_truth="NOISE",
-            attack_family="benign_noise",
-            sample_count=item.sample_count,
-            label_histogram=item.label_histogram,
         )
 
     return gradients
@@ -935,16 +1092,6 @@ def run_real_gradient_benchmark(
         seed=config.seed,
     )
     main_dataset, corner_dataset = _split_reference_clients(clients, corner_labels)
-    main_reference = _gradient_for_dataset(
-        initial_model,
-        main_dataset,
-        batch_size=config.local_batch_size,
-    )
-    corner_reference = _gradient_for_dataset(
-        initial_model,
-        corner_dataset,
-        batch_size=config.local_batch_size,
-    )
     auditor = DualChannelAuditor(
         model=copy.deepcopy(initial_model),
         main_dataset=main_dataset,
@@ -956,6 +1103,9 @@ def run_real_gradient_benchmark(
         "fedavg": {"label": "FedAvg", "model": copy.deepcopy(initial_model), "rounds": []},
         "geomed": {"label": "GeoMed", "model": copy.deepcopy(initial_model), "rounds": []},
         "krum": {"label": "Multi-Krum", "model": copy.deepcopy(initial_model), "rounds": []},
+        "fltrust": {"label": "FLTrust", "model": copy.deepcopy(initial_model), "rounds": []},
+        "zeno": {"label": "Zeno", "model": copy.deepcopy(initial_model), "rounds": []},
+        "zenopp": {"label": "Zeno++", "model": copy.deepcopy(initial_model), "rounds": []},
         "cornerdrive": {"label": "CornerDrive", "model": copy.deepcopy(initial_model), "rounds": []},
     }
     all_predictions: dict[str, list[str]] = {"cornerdrive": []}
@@ -963,27 +1113,48 @@ def run_real_gradient_benchmark(
 
     for round_index in range(config.rounds):
         round_clients = rng.sample(clients, k=min(config.clients_per_round, len(clients)))
-        round_gradients = _build_round_gradients(
-            round_clients=round_clients,
-            model=initial_model,
-            main_reference=main_reference,
-            corner_reference=corner_reference,
+        attack_plan = _build_attack_plan(
+            client_count=len(round_clients),
             rng=rng,
             config=config,
-            corner_labels=corner_labels,
         )
-        raw_gradients = [item.gradient for item in round_gradients]
+        truth = _round_truth(
+            round_clients=round_clients,
+            attack_plan=attack_plan,
+            corner_labels=corner_labels,
+            rarity_threshold=config.rarity_label_fraction_threshold,
+        )
         vehicle_ids = [
             "0x" + f"{round_index:04x}{idx:036x}"[-40:]
-            for idx in range(len(round_gradients))
+            for idx in range(len(round_clients))
         ]
-        truth = [item.ground_truth for item in round_gradients]
         all_truth.extend(truth)
 
         for method_id, method in methods.items():
             model = method["model"]
             before_main = _evaluate_model(model, main_dataset, batch_size=config.local_batch_size)
             before_corner = _evaluate_model(model, corner_dataset, batch_size=config.local_batch_size)
+            main_reference = _gradient_for_dataset(
+                model,
+                main_dataset,
+                batch_size=config.local_batch_size,
+            )
+            corner_reference = _gradient_for_dataset(
+                model,
+                corner_dataset,
+                batch_size=config.local_batch_size,
+            )
+            round_gradients = _build_round_gradients(
+                round_clients=round_clients,
+                model=model,
+                main_reference=main_reference,
+                corner_reference=corner_reference,
+                attack_plan=attack_plan,
+                config=config,
+                corner_labels=corner_labels,
+                noise_seed=config.seed + round_index * 1009,
+            )
+            raw_gradients = [item.gradient for item in round_gradients]
 
             selected_indices: set[int]
             predicted = ["ACCEPTED" for _ in raw_gradients]
@@ -994,8 +1165,62 @@ def run_real_gradient_benchmark(
                 selected_indices = set(range(len(raw_gradients)))
                 aggregated, _iterations = geometric_median(raw_gradients)
             elif method_id == "krum":
-                selected_indices = set(_multi_krum_indices(raw_gradients))
+                selected_indices = set(
+                    _multi_krum_indices(
+                        raw_gradients,
+                        byzantine_budget=_estimated_byzantine_budget(config, len(raw_gradients)),
+                    )
+                )
                 aggregated = _mean_gradient([raw_gradients[idx] for idx in sorted(selected_indices)])
+                predicted = [
+                    "ACCEPTED" if idx in selected_indices else "REJECTED"
+                    for idx in range(len(raw_gradients))
+                ]
+            elif method_id == "fltrust":
+                aggregated, selected_indices, _trust_scores = _fltrust_aggregate(
+                    raw_gradients,
+                    main_reference,
+                )
+                predicted = [
+                    "ACCEPTED" if idx in selected_indices else "REJECTED"
+                    for idx in range(len(raw_gradients))
+                ]
+            elif method_id == "zeno":
+                scores = _zeno_scores(
+                    model,
+                    raw_gradients,
+                    main_dataset,
+                    batch_size=config.local_batch_size,
+                    learning_rate=L2_LEARNING_RATE,
+                    score_penalty=config.zeno_score_penalty,
+                )
+                aggregated, selected_indices = _zeno_aggregate(
+                    raw_gradients,
+                    scores,
+                    byzantine_budget=_estimated_byzantine_budget(config, len(raw_gradients)),
+                )
+                predicted = [
+                    "ACCEPTED" if idx in selected_indices else "REJECTED"
+                    for idx in range(len(raw_gradients))
+                ]
+            elif method_id == "zenopp":
+                scores = _zeno_scores(
+                    model,
+                    raw_gradients,
+                    main_dataset,
+                    batch_size=config.local_batch_size,
+                    learning_rate=L2_LEARNING_RATE,
+                    score_penalty=config.zeno_score_penalty,
+                )
+                aggregated, selected_indices, _weights = _zenopp_aggregate(
+                    raw_gradients,
+                    scores,
+                    temperature=config.zenopp_score_temperature,
+                )
+                predicted = [
+                    "ACCEPTED" if idx in selected_indices else "REJECTED"
+                    for idx in range(len(raw_gradients))
+                ]
             else:
                 l1 = filter_suspects(
                     raw_gradients,

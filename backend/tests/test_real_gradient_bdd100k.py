@@ -125,4 +125,5 @@ def test_bdd100k_source_runs_real_gradient_smoke(tmp_path):
 
     assert result["dataset"]["source"] == "bdd100k"
     assert result["dataset"]["input_dim"] == 8 * 8 * 3
-    assert result["methods"]["cornerdrive"]["round_records"]
+    for method_id in ("krum", "fltrust", "zeno", "zenopp", "cornerdrive"):
+        assert result["methods"][method_id]["round_records"]

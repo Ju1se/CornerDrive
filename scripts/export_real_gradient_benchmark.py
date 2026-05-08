@@ -15,6 +15,7 @@ for candidate in (PROJECT_ROOT, BACKEND_DIR):
     if candidate_str not in sys.path:
         sys.path.insert(0, candidate_str)
 
+from common.schemas import DEFAULT_POLICY  # noqa: E402
 from policy_agent.analysis.real_gradient_benchmark import (  # noqa: E402
     RealGradientBenchmarkConfig,
     run_real_gradient_benchmark,
@@ -70,8 +71,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--attack-fraction", type=float, default=0.20)
     parser.add_argument("--corner-harm-fraction", type=float, default=0.05)
     parser.add_argument("--noise-fraction", type=float, default=0.05)
+    parser.add_argument("--rarity-label-fraction-threshold", type=float, default=0.30)
     parser.add_argument("--sign-flip-scale", type=float, default=3.0)
     parser.add_argument("--corner-harm-scale", type=float, default=2.0)
+    parser.add_argument("--zeno-score-penalty", type=float, default=1e-4)
+    parser.add_argument("--zenopp-score-temperature", type=float, default=0.05)
+    parser.add_argument("--theta-tol", type=float, default=None)
+    parser.add_argument("--theta-rare", type=float, default=None)
+    parser.add_argument("--cosine-filter-threshold", type=float, default=None)
+    parser.add_argument("--recheck-probability", type=float, default=None)
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -105,10 +113,24 @@ def main() -> None:
         attack_fraction=args.attack_fraction,
         corner_harm_fraction=args.corner_harm_fraction,
         noise_fraction=args.noise_fraction,
+        rarity_label_fraction_threshold=args.rarity_label_fraction_threshold,
         sign_flip_scale=args.sign_flip_scale,
         corner_harm_scale=args.corner_harm_scale,
+        zeno_score_penalty=args.zeno_score_penalty,
+        zenopp_score_temperature=args.zenopp_score_temperature,
     )
-    result = run_real_gradient_benchmark(config)
+    policy_updates = {
+        key: value
+        for key, value in {
+            "theta_tol": args.theta_tol,
+            "theta_rare": args.theta_rare,
+            "cosine_filter_threshold": args.cosine_filter_threshold,
+            "recheck_probability": args.recheck_probability,
+        }.items()
+        if value is not None
+    }
+    policy = DEFAULT_POLICY.model_copy(update=policy_updates) if policy_updates else None
+    result = run_real_gradient_benchmark(config, policy=policy)
     write_real_gradient_outputs(result, args.output_dir)
     summary = result["methods"]["cornerdrive"]["summary"]
     print(f"Wrote real-gradient benchmark artifacts to {args.output_dir}")
