@@ -60,6 +60,10 @@ services:
       - POLICY_AGENT_URL=http://policy-agent:8080
       - L1_HOST=0.0.0.0
       - L1_PORT=8081
+      - VALID_API_KEYS=${VALID_API_KEYS:-change-me-local-dev-key}
+      - L1_CORS_ALLOWED_ORIGINS=${L1_CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      - L1_MAX_GRADIENT_DIM=${L1_MAX_GRADIENT_DIM:-50000}
+      - L1_MAX_GRADIENT_ABS=${L1_MAX_GRADIENT_ABS:-1000000}
     depends_on:
       redis:
         condition: service_healthy
@@ -118,6 +122,8 @@ services:
       - L4_DASHBOARD_PORT=8082
       - L4_CONTRACT_ADDRESS=${L4_CONTRACT_ADDRESS}
       - L4_ORACLE_PRIVATE_KEY=${L4_ORACLE_PRIVATE_KEY}
+      - VALID_API_KEYS=${VALID_API_KEYS:-change-me-local-dev-key}
+      - L4_CORS_ALLOWED_ORIGINS=${L4_CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     depends_on:
       redis:
         condition: service_healthy
@@ -148,6 +154,8 @@ services:
       - POLICY_CHAIN_COMMIT_ENABLED=${POLICY_CHAIN_COMMIT_ENABLED:-false}
       - POLICY_REGISTRY_ADDRESS=${POLICY_REGISTRY_ADDRESS}
       - POLICY_ORACLE_PRIVATE_KEY=${POLICY_ORACLE_PRIVATE_KEY}
+      - VALID_API_KEYS=${VALID_API_KEYS:-change-me-local-dev-key}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://localhost:8080,http://127.0.0.1:8080}
     depends_on:
       redis:
         condition: service_healthy
@@ -174,6 +182,7 @@ services:
       - GLM_API_KEY=${GLM_API_KEY}
       - GLM_BASE_URL=${GLM_BASE_URL:-https://open.bigmodel.cn/api/paas/v4}
       - GLM_MODEL=${GLM_MODEL:-glm-4.5-air}
+      - VALID_API_KEYS=${VALID_API_KEYS:-change-me-local-dev-key}
     command: celery -A policy_agent.tasks.round_close:celery_app beat --loglevel=info --schedule=/tmp/policy-celerybeat-schedule
     depends_on:
       redis:
@@ -243,6 +252,7 @@ services:
       - VITE_PROXY_L1_TARGET=http://l1-server:8081
       - VITE_PROXY_L4_TARGET=http://l4-dashboard:8082
       - VITE_PROXY_POLICY_TARGET=http://policy-agent:8080
+      - VITE_API_KEY=${DEMO_API_KEY:-change-me-local-dev-key}
     depends_on:
       - l1-server
       - l4-dashboard
@@ -277,7 +287,7 @@ services:
     ports:
       - "3001:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-change-me-grafana-admin}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards

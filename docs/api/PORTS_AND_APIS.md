@@ -53,6 +53,7 @@ Business endpoints:
 
 Notes:
 - This service is intake-oriented and protected by `X-API-Key`.
+- Gradient submissions reject malformed vehicle addresses, non-finite values, oversized vectors, and mixed-dimensional immediate batches before aggregation.
 
 ## L4 Settlement Dashboard (`8082`)
 
@@ -70,7 +71,7 @@ Canonical API endpoints:
 - `POST /api/v1/settle/batch`
 
 Notes:
-- `POST /api/v1/settle/batch` is a batch API that fans out into per-vehicle contract calls.
+- `POST /api/v1/settle/batch` is protected by `X-API-Key` because it signs and submits settlement transactions through the configured oracle key.
 - `GET /api/v1/l3/status` is the live status surface for the library-only L3 gatekeeper. It reports whether the golden dataset is loaded from disk or falling back to placeholder data.
 
 ## Policy Agent (`8083`)
@@ -104,3 +105,4 @@ Compatibility endpoint:
 Notes:
 - Use `/health` for service uptime checks.
 - Use `/api/v1/policy/health` when the caller is already operating inside the policy namespace.
+- Policy writes (`POST /propose`, `POST /activate`, and `POST /telemetry`) require `X-API-Key`; read endpoints remain unauthenticated for dashboard use.

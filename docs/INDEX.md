@@ -25,6 +25,7 @@ Use the root `README.md` for quick onboarding. Use the documents here for archit
 ## Implementation Notes
 
 - [Implementation Guide](implementation/IMPLEMENTATION.md)
+- [Real-Data Gradient Benchmark](benchmarks/REAL_GRADIENT_BENCHMARK.md)
 
 ## Math and Theory
 

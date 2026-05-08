@@ -31,7 +31,7 @@ from common.schemas import (
     Policy, RoundTelemetry, PolicyProposal,
     PolicyBounds, PolicyMaxStep, DEFAULT_POLICY
 )
-from common.config import REDIS_URL
+from common.config import CORS_ALLOWED_ORIGINS, REDIS_URL
 
 # Import routes
 from policy_agent.api.routes_policy import router as policy_router
@@ -212,15 +212,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware - configured from environment
-_allowed_origins = os.getenv(
-    "CORS_ALLOWED_ORIGINS",
-    "http://localhost:3000,http://localhost:8080"
-).split(",")
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins,
+    allow_origins=CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
@@ -285,7 +279,7 @@ async def root():
 @app.get("/metrics")
 async def metrics():
     """Prometheus metrics endpoint."""
-    return Response(content=generate_latest(), media_type="text/plain")
+    return Response(content=generate_latest(REGISTRY), media_type="text/plain")
 
 
 # ============================================================================
@@ -361,7 +355,7 @@ async def explain_policy(proposal: PolicyProposal) -> dict:
 if __name__ == "__main__":
     import uvicorn
 
-    host = os.getenv("POLICY_AGENT_HOST", "0.0.0.0")
+    host = os.getenv("POLICY_AGENT_HOST", "127.0.0.1")
     port = int(os.getenv("POLICY_AGENT_PORT", "8083"))
 
     uvicorn.run(
