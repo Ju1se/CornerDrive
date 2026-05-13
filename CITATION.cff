@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use CornerDrive or the accompanying reproduction artifacts, please cite this dissertation/project."
+title: "CornerDrive: Dual-Loss Auditing for Rarity-Preserving Federated Learning in Internet of Vehicles"
+authors:
+  - family-names: "Xie"
+    given-names: "Scott"
+year: 2026
+version: "v2.5-thesis"
+license: "MIT"

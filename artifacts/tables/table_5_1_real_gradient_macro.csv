@@ -1,0 +1,6 @@
+method,main_accuracy,corner_accuracy,fraud_survival,rarity_retention
+Multi-Krum,0.4891,0.6878,0.0533,0.8858
+FLTrust,0.4691,0.6489,0.1178,0.6308
+Zeno,0.497,0.6824,0.1244,0.9788
+Zeno++,0.4946,0.6936,0.0,0.4865
+CornerDrive,0.4707,0.705,0.0489,0.7789

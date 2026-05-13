@@ -48,7 +48,7 @@ def dual_audit(gradient, main_loss, corner_loss, current_weights, learning_rate)
         classification = "FRAUD"
         action = "SLASH_STAKE"
         sbt_change = -50
-    elif delta_corner <= RARITY_THRESHOLD and delta_main <= 0:
+    elif delta_corner <= RARITY_THRESHOLD and delta_main <= FRAUD_THRESHOLD:
         classification = "RARITY"
         action = "JACKPOT_REWARD"
         sbt_change = 10
@@ -76,7 +76,7 @@ def dual_audit(gradient, main_loss, corner_loss, current_weights, learning_rate)
 | Mathematical Trigger | Diagnosis | Action | SBT Points |
 |---------------------|-----------|--------|------------|
 | ΔL_main > θ_tol (Utility Violation) | ✗ FRAUD | SLASH STAKE | -50 |
-| ΔL_corner ≤ θ_rare and ΔL_main ≤ 0 (Information Gain without main-task harm) | ✓ RARITY | JACKPOT | +10 |
+| ΔL_corner ≤ θ_rare and ΔL_main ≤ θ_tol (corner information gain within the main-task damage budget) | ✓ RARITY | JACKPOT | +10 |
 | ΔL_main < 0 (Helps Main) | ✓ HONEST | INCLUDE | +1 |
 | Otherwise (Negligible Impact) | ~ NOISE | DISCARD | 0 |
 

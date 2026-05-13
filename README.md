@@ -1,88 +1,236 @@
-# Federated Learning Privacy Game (FLPG)
+# CornerDrive
 
-FLPG is a layered federated-learning security stack for Internet of Vehicles scenarios. The repository contains backend services for screening and audit, a policy control plane, a React dashboard, and Solidity contracts for settlement and policy commitment.
+CornerDrive is a reproducibility repository for a federated-learning thesis on
+rarity-preserving update auditing in Internet of Vehicles settings. The core
+method combines:
 
-## Quick Start
+- L1 routing: cheap gradient screening before expensive audit.
+- L2 dual-loss audit: classify suspect updates with main-task and corner-case
+  loss drift.
+- Controlled ALG/V2.5 simulations plus real-data client-gradient benchmarks.
+
+This repository is intended to let a reader clone the project, install the
+environment, run the documented commands, and regenerate the main thesis tables.
+
+## What Can Be Reproduced
+
+| Thesis item | Reproduction output |
+|---|---|
+| Real-gradient method comparison, Table 5.1 | `artifacts/tables/table_5_1_real_gradient_macro.csv` |
+| CornerDrive real-gradient dataset breakdown, Table 5.2 | `artifacts/tables/table_5_2_cornerdrive_real_gradient_by_dataset.csv` |
+| ALG/V2.5 main result and recheck sweep | `results/audit_reproduction/v25_artifacts_b24/*.csv` |
+| L1 routing and L2 confusion appendix tables | `results/audit_reproduction/v25_artifacts_b24/*.csv` |
+| Rarity-overlap and proxy stress tests | `artifacts/tables/appendix_rarity_overlap.csv`, `artifacts/tables/appendix_proxy_sensitivity.csv` |
+| Corner-family divergence stress test | `artifacts/tables/appendix_corner_family_divergence.csv` |
+| Corner-harm threshold calibration | `artifacts/tables/appendix_corner_harm_threshold_calibration.csv` |
+
+The compact expected-value manifest is `results/expected_results.csv`.
+
+## Environment
+
+Tested environment:
+
+- Python 3.12
+- PyTorch 2.8.0
+- torchvision 0.23.0
+- CPU execution is sufficient for the thesis reproduction scripts.
+
+Install with pip:
 
 ```bash
-cp .env.example .env
-./scripts/setup.sh
-./scripts/run_demo.sh
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Default local endpoints:
+or with conda:
 
-- Frontend: `http://localhost:3000`
-- L1 Linear Defense: `http://localhost:8081`
-- L4 Settlement Dashboard: `http://localhost:8082`
-- Policy Agent: `http://localhost:8083`
+```bash
+conda env create -f environment.yml
+conda activate cornerdrive-repro
+```
 
-## Repository Map
+If you want CUDA acceleration, install the PyTorch wheel matching your CUDA
+runtime before running the experiments.
+
+## Dataset
+
+Data files are not tracked in Git. Runtime datasets belong under `data/real/`.
+
+Prepare MNIST and FashionMNIST:
+
+```bash
+python scripts/prepare_data.py --download-torchvision
+```
+
+FEMNIST/LEAF is expected under:
+
+```text
+data/real/femnist/train/
+data/real/femnist/test/
+```
+
+See `data/README.md` for details about MNIST, FashionMNIST, FEMNIST/LEAF,
+optional BDD100K calibration, and how `D_main` and `D_corner` are constructed.
+
+## Reproduce Main Results
+
+### Quick thesis smoke check
+
+This regenerates the ALG/V2.5 main result, recheck sweep, and paper-facing CSV
+tables. It is the fastest thesis-critical check.
+
+```bash
+bash scripts/reproduce_all.sh main
+```
+
+Important: the thesis ALG/V2.5 setting is:
+
+```bash
+BATCH_SIZE=24
+VEHICLE_POOL_SIZE=128
+```
+
+`scripts/reproduce_all.sh` sets those defaults explicitly. Running
+`scripts/export_v25_artifacts.py` without them uses the demo defaults
+(`BATCH_SIZE=96`, `VEHICLE_POOL_SIZE=384`) and will not reproduce the thesis
+numbers.
+
+Equivalent explicit command:
+
+```bash
+BATCH_SIZE=24 VEHICLE_POOL_SIZE=128 python scripts/export_v25_artifacts.py \
+  --seeds 20260318,20260319,20260320,20260321,20260322 \
+  --recheck-values 0.00,0.05,0.10,0.20,0.30 \
+  --output-dir results/audit_reproduction/v25_artifacts_b24
+```
+
+### Appendix stress tables
+
+```bash
+bash scripts/reproduce_all.sh appendix
+```
+
+This runs:
+
+- `scripts/export_v25_stress_tests.py`
+- `scripts/export_corner_family_divergence.py`
+- `scripts/export_corner_harm_threshold_calibration.py`
+
+### Real-gradient reliability benchmark
+
+```bash
+bash scripts/reproduce_all.sh real-gradient
+```
+
+Equivalent explicit command:
+
+```bash
+python scripts/export_real_gradient_reliability_benchmark.py \
+  --sources mnist,fashionmnist,femnist \
+  --seeds 20260507,20260508,20260509 \
+  --download \
+  --max-clients 120 \
+  --min-samples-per-client 8 \
+  --max-samples-per-client 48 \
+  --clients-per-round 20 \
+  --rounds 10 \
+  --pretrain-steps 50 \
+  --local-batch-size 16 \
+  --output-dir results/real_gradient_reliability_medium
+```
+
+If FEMNIST is not prepared yet, run only the torchvision sources first:
+
+```bash
+REAL_SOURCES=mnist,fashionmnist bash scripts/reproduce_all.sh real-gradient
+```
+
+### Full reproduction
+
+```bash
+bash scripts/reproduce_all.sh all
+```
+
+This can take substantially longer because it reruns real-gradient, ALG main,
+stress tests, divergence, threshold calibration, and table generation.
+
+## Expected Results
+
+Representative expected values:
+
+| Item | Expected |
+|---|---:|
+| Real-gradient CornerDrive macro fraud survival | 0.0489 |
+| Real-gradient CornerDrive macro rarity retention | 0.7789 |
+| ALG CornerDrive p=0.10 main accuracy | 85.58% ± 0.55 |
+| ALG CornerDrive p=0.10 corner accuracy | 61.24% ± 0.53 |
+| ALG CornerDrive p=0.10 sign-flip survival | 0.00% ± 0.00 |
+| ALG CornerDrive p=0.10 corner-harm survival | 84.00% ± 5.48 |
+| Rarity-overlap baseline recognition | 100.00% |
+| Random main proxy rarity recognition | 0.00% |
+
+See `results/expected_results.csv` for tolerances and source files.
+
+## Generate Paper Tables From Existing Results
+
+If result CSVs already exist, regenerate paper-facing tables without rerunning
+the experiments:
+
+```bash
+python scripts/make_paper_tables.py
+```
+
+Outputs are written to `artifacts/tables/`.
+
+## Repository Structure
 
 | Path | Purpose |
-| --- | --- |
-| `backend/common` | shared config, schemas, helpers |
-| `backend/l1_linear_defense` | gradient intake, batching, suspect filtering |
-| `backend/l2_dual_audit` | async audit worker and classification |
+|---|---|
+| `backend/common` | shared schemas, config, and utilities |
+| `backend/l1_linear_defense` | L1 gradient screening and routing |
+| `backend/l2_dual_audit` | L2 dual-loss audit logic |
 | `backend/l3_gatekeeper` | validation library code |
-| `backend/l4_settlement` | dashboard and settlement API |
-| `backend/policy_agent` | adaptive policy service |
+| `backend/l4_settlement` | settlement API/dashboard code |
+| `backend/policy_agent` | policy service and benchmark analysis |
 | `backend/tests` | backend and integration tests |
-| `frontend/src` | React application |
-| `contracts/contracts` | Solidity sources |
-| `contracts/scripts` | deployment scripts |
-| `docs` | architecture, API, implementation, and formulas |
-| `scripts` | setup, unified local startup, demo generation, and V2.5 artifact export |
+| `configs` | thesis reproduction parameter manifests |
+| `data` | dataset instructions; generated data is ignored |
+| `results` | generated experiment outputs; mostly ignored |
+| `artifacts/tables` | regenerated paper-facing CSV tables |
+| `scripts` | data prep, reproduction, exporters, and table builders |
+| `docs` | architecture, formulas, reports, and benchmark notes |
+| `contracts` | Solidity settlement/policy commitment sources |
+| `frontend` | React dashboard for the full FLPG demo |
 
-Local artifact directories such as `backend/venv`, `frontend/node_modules`, and `frontend/dist` are runtime or build outputs, not primary source roots.
+## Tests
 
-## Documentation
-
-- [Documentation Index](docs/INDEX.md)
-- [Implementation Guide](docs/implementation/IMPLEMENTATION.md)
-- [Ports and APIs](docs/api/PORTS_AND_APIS.md)
-- [System Architecture](docs/architecture/ARCHITECTURE.md)
-- [Mathematical Formulas](docs/formulas/MATHEMATICAL_FORMULAS.md)
-- [V2.5 Code Audit and Cleanup](docs/reports/V25_CODE_AUDIT_AND_CLEANUP.md)
-
-## Thesis Artifacts
-
-Use the V2.5 exporter for Chapter 4 benchmark evidence:
+Run the core tests used for the reproduction sanity check:
 
 ```bash
-python scripts/export_v25_artifacts.py --rounds 24 --cycle-rounds 12 --pretrain-epochs 5 --output-dir results/v25_artifacts
+python -m pytest \
+  backend/tests/test_baseline_analysis.py \
+  backend/tests/test_l1v3_router.py \
+  backend/tests/test_real_gradient_bdd100k.py \
+  -q
 ```
 
-Additional reproducibility exporters:
+## Notes on Baselines and Ablations
 
-| Script | Purpose |
-| --- | --- |
-| `scripts/export_l1v3_ablation.py` | M0-M4 L1 visibility-router ablation |
-| `scripts/export_l1_l2_operating_curve.py` | L1 queue-cost frontier and L2 threshold grid |
-| `scripts/export_v25_stress_tests.py` | rarity/proxy/threshold stress-test tables |
-| `scripts/export_real_gradient_benchmark.py` | real-data client-gradient benchmark using LEAF/FEMNIST, BDD100K, or torchvision data |
-| `scripts/export_synthetic_real_gradient_calibration.py` | ALG-vs-real/BDD100K client-SGD gradient calibration |
-| `scripts/export_corner_family_divergence.py` | corner-family divergence rho sweep |
-| `scripts/export_exhaustive_l2_audit.py` | full-visibility L2 upper-bound ablation |
-| `scripts/export_layer_cost_profile.py` | L1+L2 vs Exhaustive L2 cost profile |
-| `scripts/export_reputation_accumulation_simulation.py` | L4 reputation accumulation simulation |
-| `scripts/export_corner_harm_threshold_calibration.py` | corner-harm threshold robustness table |
+The main exporters include FedAvg, GeoMed, Multi-Krum, FLTrust, Zeno, Zeno++,
+CornerDrive, main-only audit, corner-only audit, exhaustive L2, L1 ablations,
+and operating-curve scripts. See:
 
-Older benchmark scripts and reports live under `scripts/legacy/` and
-`docs/reports/legacy/`; they are retained for design history only.
+- `scripts/export_v25_artifacts.py`
+- `scripts/export_exhaustive_l2_audit.py`
+- `scripts/export_l1v3_ablation.py`
+- `scripts/export_l1_l2_operating_curve.py`
+- `scripts/export_layer_cost_profile.py`
 
-Layer-specific references:
+## Citation
 
-- [L1: Linear Defense](docs/architecture/L1_LINEAR_DEFENSE.md)
-- [L2: Dual Audit](docs/architecture/L2_DUAL_AUDIT.md)
-- [L3: Gatekeeper](docs/architecture/L3_GATEKEEPER.md)
-- [L4: Settlement](docs/architecture/L4_SETTLEMENT.md)
-
-## Notes
-
-- `L3` is implemented as library code and is not the default live service in the current stack.
-- Canonical endpoint naming now lives under `docs/api/` so API paths have a single reference point.
+See `CITATION.cff`.
 
 ## License
 
-MIT License
+MIT. See `LICENSE`.

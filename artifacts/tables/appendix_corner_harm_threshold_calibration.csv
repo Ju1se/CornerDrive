@@ -1,0 +1,5 @@
+setting,theta_corner_harm,main_accuracy_percent,corner_accuracy_percent,corner_harm_survival_percent,honest_false_corner_harm_reject_percent
+calibrated_mu_plus_1sigma,-0.002902,85.5025,61.7875,84.0,12.2836
+default_0.000,0.0,85.5808,61.2417,84.0,0.0
+relaxed_0.005,0.005,85.5808,61.2417,84.0,0.0
+strict_-0.005,-0.005,85.0817,63.2083,84.0,100.0

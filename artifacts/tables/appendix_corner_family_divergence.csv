@@ -1,0 +1,6 @@
+rho,runs,rarity_recognition_percent,rarity_recognition_std_percent,retention_percent,retention_std_percent,false_rarity_count,main_accuracy_percent,main_accuracy_std_percent,corner_accuracy_percent,corner_accuracy_std_percent
+0.0,5,0.0,0.0,0.0,0.0,0,84.4917,0.1046,20.725,0.6271
+0.3,5,58.7805,3.1566,58.7805,3.1566,0,84.3742,0.098,34.1625,0.8177
+0.5,5,99.2683,0.668,99.2683,0.668,0,80.19,0.5949,46.1833,0.4123
+0.7,5,100.0,0.0,100.0,0.0,0,81.2342,0.5445,51.0958,0.4095
+1.0,5,100.0,0.0,100.0,0.0,0,85.5808,0.5454,61.2417,0.5302

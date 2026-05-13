@@ -1,0 +1,10 @@
+name: cornerdrive-repro
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - -r requirements.txt

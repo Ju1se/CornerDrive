@@ -1,0 +1,9 @@
+method,main_accuracy_percent,main_accuracy_std_percent,corner_accuracy_percent,corner_accuracy_std_percent,rarity_recall_percent,sign_flip_survival_percent,corner_harm_survival_percent
+FedAvg,75.43,0.2163,51.8375,0.1135,,100.0,100.0
+GeoMed,84.2083,0.0125,36.6583,0.0523,,100.0,100.0
+Multi-Krum,84.2658,0.0285,36.475,0.0373,,0.0,0.0
+CornerDrive p=0.00,86.6208,0.2875,60.3875,0.2528,100.0,0.0,100.0
+CornerDrive p=0.05,86.185,0.3531,60.775,0.4334,100.0,0.0,93.0
+CornerDrive p=0.10,85.5808,0.5454,61.2417,0.5302,100.0,0.0,84.0
+CornerDrive p=0.20,85.355,0.4626,61.4333,0.4706,100.0,0.0,81.0
+CornerDrive p=0.30,84.5733,0.2187,62.0542,0.3696,100.0,0.0,71.0

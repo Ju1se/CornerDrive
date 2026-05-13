@@ -29,8 +29,18 @@ Use `scripts/export_v25_artifacts.py` for Chapter 4 evidence. It exports:
 Canonical command:
 
 ```bash
-python scripts/export_v25_artifacts.py --rounds 24 --cycle-rounds 12 --pretrain-epochs 5 --output-dir results/v25_artifacts
+BATCH_SIZE=24 VEHICLE_POOL_SIZE=128 python scripts/export_v25_artifacts.py \
+  --rounds 24 \
+  --cycle-rounds 12 \
+  --pretrain-epochs 5 \
+  --seeds 20260318,20260319,20260320,20260321,20260322 \
+  --recheck-values 0.00,0.05,0.10,0.20,0.30 \
+  --output-dir results/v25_artifacts
 ```
+
+The `BATCH_SIZE` and `VEHICLE_POOL_SIZE` environment variables are part of the
+paper configuration. Omitting them uses the interactive demo defaults rather
+than the thesis benchmark scale.
 
 ## Findings and Actions
 

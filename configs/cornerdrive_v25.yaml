@@ -1,0 +1,59 @@
+experiment: cornerdrive_v25_alg
+description: "Thesis-matching ALG/V2.5 synthetic-gradient benchmark."
+
+environment:
+  batch_size: 24
+  vehicle_pool_size: 128
+  python: ">=3.10,<3.13"
+
+simulation:
+  rounds: 24
+  cycle_rounds: 12
+  clients_per_round: 24
+  vehicle_pool_size: 128
+  generator_seeds:
+    - 20260318
+    - 20260319
+    - 20260320
+    - 20260321
+    - 20260322
+  pretrain_seed: 20260404
+  pretrain_epochs: 5
+  pretrain_batch_size: 64
+  pretrain_learning_rate: 0.001
+  server_lr_eta: 0.01
+
+data_splits:
+  generator_main: 300
+  generator_corner: 100
+  audit_main: 500
+  audit_corner: 100
+  oracle_main: 1000
+  oracle_corner: 200
+
+l1_router:
+  mode: v25_cosine_fixed
+  reference: geometric_median
+  tau_screen: 0.70
+  queue_budget_ratio: 0.35
+  random_recheck_ratio: 0.05
+  recheck_values: [0.00, 0.05, 0.10, 0.20, 0.30]
+
+l2_audit:
+  theta_tol: 0.05
+  theta_rare: -0.03
+  theta_corner_harm: 0.0
+  corner_weight: 1.0
+
+per_seed_ground_truth_counts:
+  honest: 400
+  rarity: 82
+  noise: 44
+  fraud_sign_flip: 30
+  fraud_corner_harm: 20
+
+outputs:
+  main_results: results/audit_reproduction/v25_artifacts_b24/v25_main_result_table.csv
+  recheck_sweep: results/audit_reproduction/v25_artifacts_b24/v25_recheck_sweep_table.csv
+  l1_routing: results/audit_reproduction/v25_artifacts_b24/v25_l1_routing_by_archetype_reason.csv
+  l2_confusion: results/audit_reproduction/v25_artifacts_b24/v25_l2_confusion_matrix.csv

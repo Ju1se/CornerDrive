@@ -23,7 +23,7 @@ The Federated Learning Privacy Game (FLPG) implements a 5-layer security archite
 - **Corner Case Impact**: `ΔL_corner = L(W-ηg; D_corner) - L(W; D_corner)`
 - **Classification Rules**:
   - FRAUD: `ΔL_main > θ_tol` (Utility Violation)
-  - RARITY: `ΔL_corner ≤ θ_rare` and `ΔL_main ≤ 0` (Information Gain without main-task harm)
+  - RARITY: `ΔL_corner ≤ θ_rare` and `ΔL_main ≤ θ_tol` (corner information gain within the main-task damage budget)
   - NOISE: Negligible Impact
 - **Fraud Proof & Rarity Certificate** generation
 

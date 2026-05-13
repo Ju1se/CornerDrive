@@ -1,0 +1,40 @@
+experiment: cornerdrive_stress_tests
+description: "Appendix rarity-overlap, proxy-sensitivity, threshold, and corner-family divergence checks."
+
+base:
+  batch_size: 24
+  vehicle_pool_size: 128
+  rounds: 24
+  cycle_rounds: 12
+  seeds:
+    - 20260318
+    - 20260319
+    - 20260320
+    - 20260321
+    - 20260322
+
+rarity_overlap:
+  configs:
+    - baseline_outlier
+    - mixed_overlap
+    - hard_mixed
+
+proxy_sensitivity:
+  configs:
+    - default
+    - small_50
+    - biased_1_7
+    - random_main
+
+threshold_sensitivity:
+  p_recheck: 0.50
+  theta_rare: [-0.05, -0.03, -0.01]
+  theta_tol: [0.025, 0.050, 0.075]
+
+corner_family_divergence:
+  rho_values: [0.00, 0.30, 0.50, 0.70, 1.00]
+
+corner_harm_threshold_calibration:
+  p_recheck: 0.10
+  fixed_thresholds: [-0.005, 0.000, 0.005]
+  calibrated_threshold: "mean benign corner drift + 1 std"

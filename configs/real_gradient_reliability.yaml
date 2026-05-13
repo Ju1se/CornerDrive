@@ -1,0 +1,48 @@
+experiment: real_gradient_reliability
+description: "Three-source real-data client-gradient benchmark used for thesis Table 5.1 and Table 5.2."
+
+sources:
+  - mnist
+  - fashionmnist
+  - femnist
+
+seeds:
+  - 20260507
+  - 20260508
+  - 20260509
+
+data:
+  data_dir: data/real
+  leaf_data_dir: data/real/femnist
+  max_clients: 120
+  min_samples_per_client: 8
+  max_samples_per_client: 48
+  clients_per_round: 20
+  rounds: 10
+  local_batch_size: 16
+
+policy_profile: real_data_adaptive
+l1_router:
+  mode: v3_m2_norm_sign_fixed
+  cosine_filter_threshold: 0.60
+  norm_mad_threshold: 2.5
+  sign_threshold: 0.55
+  sign_topk_ratio: 0.10
+  queue_budget_ratio: 0.35
+  random_recheck_ratio: 0.05
+
+l2_audit:
+  theta_tol: 0.02
+  theta_rare: -0.005
+  recheck_probability: 0.25
+
+attacks:
+  sign_flip_fraction: 0.20
+  corner_harm_fraction: 0.05
+  benign_noise_fraction: 0.05
+  sign_flip_scale: 3.0
+  corner_harm_scale: 2.0
+
+outputs:
+  summary: results/real_gradient_reliability_medium/real_gradient_reliability_summary.csv
+  runs: results/real_gradient_reliability_medium/real_gradient_reliability_runs.csv
