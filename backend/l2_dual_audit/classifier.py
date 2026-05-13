@@ -28,8 +28,8 @@ logger = logging.getLogger(__name__)
 class Classification(Enum):
     """L2 classification outcomes."""
     FRAUD = "FRAUD"      # ΔL_main > θ_tol → Malicious, slash stake
-    RARITY = "RARITY"    # ΔL_corner ≤ theta_rare and ΔL_main ≤ 0 → Beneficial rare update
-                         # theta_rare 是负值，越负越严格；不奖励会伤害主任务的更新
+    RARITY = "RARITY"    # ΔL_corner ≤ theta_rare and ΔL_main ≤ theta_tol → Beneficial rare update
+                         # theta_rare is negative; theta_tol bounds tolerated main-task drift.
     HONEST = "HONEST"    # ΔL_main < 0 → Helps main task
     NOISE = "NOISE"      # Otherwise → Negligible impact
 

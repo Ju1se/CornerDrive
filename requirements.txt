@@ -1,0 +1,8 @@
+# Reproducibility environment for the CornerDrive thesis experiments.
+# Tested with Python 3.12 on CPU. CUDA is optional; install the matching
+# PyTorch wheel from https://pytorch.org if you want GPU acceleration.
+
+-r backend/requirements.txt
+
+# Used for human-readable experiment configs and optional table tooling.
+PyYAML==6.0.3

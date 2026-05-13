@@ -34,7 +34,7 @@ class Policy(BaseModel):
         default=-0.03,
         ge=-0.10,
         le=-0.005,
-        description="L2 beneficial-rarity threshold (ΔL_corner ≤ theta_rare and ΔL_main ≤ 0 → RARITY)"
+        description="L2 beneficial-rarity threshold (ΔL_corner ≤ theta_rare and ΔL_main ≤ theta_tol → RARITY)"
     )
 
     # L3 drift threshold

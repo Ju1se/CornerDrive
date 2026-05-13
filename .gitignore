@@ -43,13 +43,18 @@ htmlcov/
 coverage.xml
 
 # Runtime and experiment artifacts
-results/
+results/*
+!results/README.md
+!results/expected_results.csv
+!results/expected_outputs/
+!results/expected_outputs/**
 logs/
 backend/logs/
 runtime_state/
 backend/runtime_state/
 backend/celerybeat-*
 dump.rdb
+thesis_real_gradient_send_package_*/
 
 # Build
 *.log

@@ -2,8 +2,8 @@
 
 Audited files:
 
-- Revised thesis: `/Users/scottxie/Downloads/main.pdf`
-- Previous SAT301 thesis: `/Users/scottxie/Desktop/FYP/SAT301 FYP Dissertation CornerDrive.pdf`
+- Revised thesis: user-supplied final thesis PDF outside the repo
+- Previous SAT301 thesis: older same-name local PDF copy outside the repo
 - Main result sources:
   - `results/real_gradient_full_method_comparison.csv`
   - `results/real_gradient_adaptive_method_comparison.csv`

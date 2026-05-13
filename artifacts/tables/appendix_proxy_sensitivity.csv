@@ -1,0 +1,5 @@
+proxy,rarity_recognition_percent,retention_percent,corner_accuracy_percent,spearman,false_rarity_count
+biased_1_7,100.0,100.0,61.2417,0.9964,0
+default,100.0,100.0,61.2417,0.9995,0
+random_main,0.0,0.0,20.1542,0.2995,16
+small_50,100.0,100.0,61.2417,0.9994,0

@@ -1,0 +1,4 @@
+setting,rarity_recognition_percent,retention_percent,false_rarity_count,corner_accuracy_percent
+baseline_outlier,100.0,100.0,0,61.2417
+hard_mixed,40.4878,100.0,0,57.3333
+mixed_overlap,53.4146,100.0,0,63.2875
