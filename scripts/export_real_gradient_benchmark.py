@@ -15,8 +15,10 @@ for candidate in (PROJECT_ROOT, BACKEND_DIR):
     if candidate_str not in sys.path:
         sys.path.insert(0, candidate_str)
 
+from common.schemas import DEFAULT_POLICY  # noqa: E402
 from policy_agent.analysis.real_gradient_benchmark import (  # noqa: E402
     RealGradientBenchmarkConfig,
+    make_real_data_adaptive_policy,
     run_real_gradient_benchmark,
     write_real_gradient_outputs,
 )
@@ -26,15 +28,37 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Build a real-data gradient benchmark. Prefer LEAF/FEMNIST JSON via "
-            "--source leaf_femnist; otherwise use torchvision MNIST/FashionMNIST."
+            "--source leaf_femnist; use --source bdd100k for IoV image "
+            "attribute pseudo-clients; otherwise use torchvision MNIST/FashionMNIST."
         )
     )
     parser.add_argument(
         "--source",
         default="auto",
-        choices=["auto", "leaf_femnist", "femnist", "mnist", "fashionmnist", "torchvision_mnist", "torchvision_fashionmnist"],
+        choices=[
+            "auto",
+            "leaf_femnist",
+            "femnist",
+            "bdd",
+            "bdd100k",
+            "mnist",
+            "fashionmnist",
+            "torchvision_mnist",
+            "torchvision_fashionmnist",
+        ],
     )
     parser.add_argument("--leaf-data-dir", default="data/real/femnist")
+    parser.add_argument("--bdd-data-dir", default="data/real/bdd100k")
+    parser.add_argument("--bdd-label-file", default="")
+    parser.add_argument("--bdd-image-dir", default="")
+    parser.add_argument("--bdd-image-size", type=int, default=32)
+    parser.add_argument(
+        "--bdd-target-attribute",
+        choices=["weather", "timeofday", "scene"],
+        default="weather",
+    )
+    parser.add_argument("--bdd-client-group", default="weather_timeofday")
+    parser.add_argument("--bdd-corner-values", default="rainy,snowy,foggy")
     parser.add_argument("--data-dir", default="data/real")
     parser.add_argument("--download", action="store_true")
     parser.add_argument("--max-clients", type=int, default=80)
@@ -48,8 +72,30 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--attack-fraction", type=float, default=0.20)
     parser.add_argument("--corner-harm-fraction", type=float, default=0.05)
     parser.add_argument("--noise-fraction", type=float, default=0.05)
+    parser.add_argument("--rarity-label-fraction-threshold", type=float, default=0.30)
     parser.add_argument("--sign-flip-scale", type=float, default=3.0)
     parser.add_argument("--corner-harm-scale", type=float, default=2.0)
+    parser.add_argument("--zeno-score-penalty", type=float, default=1e-4)
+    parser.add_argument("--zenopp-score-temperature", type=float, default=0.05)
+    parser.add_argument(
+        "--policy-profile",
+        choices=["default", "real_data_adaptive"],
+        default="real_data_adaptive",
+        help=(
+            "CornerDrive policy profile. real_data_adaptive uses the tuned "
+            "thresholds from the current real-gradient MNIST/Fashion/FEMNIST traces."
+        ),
+    )
+    parser.add_argument("--theta-tol", type=float, default=None)
+    parser.add_argument("--theta-rare", type=float, default=None)
+    parser.add_argument("--cosine-filter-threshold", type=float, default=None)
+    parser.add_argument("--recheck-probability", type=float, default=None)
+    parser.add_argument("--cornerdrive-l1-mode", default=None)
+    parser.add_argument("--cornerdrive-l1-norm-mad-threshold", type=float, default=None)
+    parser.add_argument("--cornerdrive-l1-sign-threshold", type=float, default=None)
+    parser.add_argument("--cornerdrive-l1-sign-topk-ratio", type=float, default=None)
+    parser.add_argument("--cornerdrive-l1-queue-budget-ratio", type=float, default=None)
+    parser.add_argument("--cornerdrive-l1-random-recheck-ratio", type=float, default=None)
     parser.add_argument(
         "--output-dir",
         type=Path,
@@ -60,9 +106,35 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if args.policy_profile == "real_data_adaptive":
+        l1_defaults = {
+            "cornerdrive_l1_mode": "v3_m2_norm_sign_fixed",
+            "cornerdrive_l1_norm_mad_threshold": 2.5,
+            "cornerdrive_l1_sign_threshold": 0.55,
+            "cornerdrive_l1_sign_topk_ratio": 0.10,
+            "cornerdrive_l1_queue_budget_ratio": 0.35,
+            "cornerdrive_l1_random_recheck_ratio": 0.05,
+        }
+    else:
+        l1_defaults = {
+            "cornerdrive_l1_mode": "v25_cosine_fixed",
+            "cornerdrive_l1_norm_mad_threshold": 3.0,
+            "cornerdrive_l1_sign_threshold": 0.65,
+            "cornerdrive_l1_sign_topk_ratio": 0.10,
+            "cornerdrive_l1_queue_budget_ratio": 0.35,
+            "cornerdrive_l1_random_recheck_ratio": 0.05,
+        }
+
     config = RealGradientBenchmarkConfig(
         source=args.source,
         leaf_data_dir=args.leaf_data_dir,
+        bdd_data_dir=args.bdd_data_dir,
+        bdd_label_file=args.bdd_label_file,
+        bdd_image_dir=args.bdd_image_dir,
+        bdd_image_size=args.bdd_image_size,
+        bdd_target_attribute=args.bdd_target_attribute,
+        bdd_client_group=args.bdd_client_group,
+        bdd_corner_values=args.bdd_corner_values,
         data_dir=args.data_dir,
         download=args.download,
         max_clients=args.max_clients,
@@ -76,10 +148,55 @@ def main() -> None:
         attack_fraction=args.attack_fraction,
         corner_harm_fraction=args.corner_harm_fraction,
         noise_fraction=args.noise_fraction,
+        rarity_label_fraction_threshold=args.rarity_label_fraction_threshold,
         sign_flip_scale=args.sign_flip_scale,
         corner_harm_scale=args.corner_harm_scale,
+        zeno_score_penalty=args.zeno_score_penalty,
+        zenopp_score_temperature=args.zenopp_score_temperature,
+        cornerdrive_l1_mode=args.cornerdrive_l1_mode or l1_defaults["cornerdrive_l1_mode"],
+        cornerdrive_l1_norm_mad_threshold=(
+            args.cornerdrive_l1_norm_mad_threshold
+            if args.cornerdrive_l1_norm_mad_threshold is not None
+            else l1_defaults["cornerdrive_l1_norm_mad_threshold"]
+        ),
+        cornerdrive_l1_sign_threshold=(
+            args.cornerdrive_l1_sign_threshold
+            if args.cornerdrive_l1_sign_threshold is not None
+            else l1_defaults["cornerdrive_l1_sign_threshold"]
+        ),
+        cornerdrive_l1_sign_topk_ratio=(
+            args.cornerdrive_l1_sign_topk_ratio
+            if args.cornerdrive_l1_sign_topk_ratio is not None
+            else l1_defaults["cornerdrive_l1_sign_topk_ratio"]
+        ),
+        cornerdrive_l1_queue_budget_ratio=(
+            args.cornerdrive_l1_queue_budget_ratio
+            if args.cornerdrive_l1_queue_budget_ratio is not None
+            else l1_defaults["cornerdrive_l1_queue_budget_ratio"]
+        ),
+        cornerdrive_l1_random_recheck_ratio=(
+            args.cornerdrive_l1_random_recheck_ratio
+            if args.cornerdrive_l1_random_recheck_ratio is not None
+            else l1_defaults["cornerdrive_l1_random_recheck_ratio"]
+        ),
     )
-    result = run_real_gradient_benchmark(config)
+    policy = (
+        make_real_data_adaptive_policy()
+        if args.policy_profile == "real_data_adaptive"
+        else DEFAULT_POLICY
+    )
+    policy_updates = {
+        key: value
+        for key, value in {
+            "theta_tol": args.theta_tol,
+            "theta_rare": args.theta_rare,
+            "cosine_filter_threshold": args.cosine_filter_threshold,
+            "recheck_probability": args.recheck_probability,
+        }.items()
+        if value is not None
+    }
+    policy = policy.model_copy(update=policy_updates) if policy_updates else policy
+    result = run_real_gradient_benchmark(config, policy=policy)
     write_real_gradient_outputs(result, args.output_dir)
     summary = result["methods"]["cornerdrive"]["summary"]
     print(f"Wrote real-gradient benchmark artifacts to {args.output_dir}")
@@ -88,7 +205,8 @@ def main() -> None:
         f"main_acc={summary['main_accuracy_avg']:.4f}, "
         f"corner_acc={summary['corner_accuracy_avg']:.4f}, "
         f"fraud_survival={summary['fraud_survival_rate_avg']:.4f}, "
-        f"rarity_retention={summary['rarity_retention_rate_avg']:.4f}"
+        f"rarity_retention={summary['rarity_retention_rate_avg']:.4f}, "
+        f"l1_review_rate={summary.get('l1_review_rate_avg', 0.0):.4f}"
     )
 
 
