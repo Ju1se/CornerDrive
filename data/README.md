@@ -17,9 +17,11 @@ or directly during the benchmark run:
 python scripts/export_real_gradient_reliability_benchmark.py --download --sources mnist,fashionmnist
 ```
 
-The benchmark creates deterministic non-IID pseudo-clients from image samples.
+The benchmark creates deterministic non-IID pseudo-clients from training images.
 For the thesis setting, each source uses 120 pseudo-clients, 20 clients per
-round, and 10 rounds per seed.
+round, and 10 rounds per seed. The official test split is then deterministically
+divided into a server-side audit/reference surface and a separate final
+evaluation surface.
 
 ## FEMNIST / LEAF
 
@@ -33,6 +35,10 @@ data/real/femnist/test/
 Use the LEAF preprocessing scripts or an equivalent FEMNIST export that matches
 LEAF's JSON client format. Keep the generated files in `data/real/femnist/`; do
 not commit them to Git.
+
+The benchmark loads LEAF `train/` shards for client/update gradients. LEAF
+`test/` shards are held out and deterministically divided into audit/reference
+and final evaluation client subsets.
 
 ## BDD100K Optional Calibration
 
@@ -57,6 +63,6 @@ CornerDrive audits every suspect update against two validation channels:
   corner-case benefit.
 
 For MNIST/FashionMNIST, `D_corner` is built from rare label groups configured in
-the benchmark code. For FEMNIST, `D_corner` is derived from corner-heavy client
-label distributions. The thesis real-gradient configuration is mirrored in
-`configs/real_gradient_reliability.yaml`.
+the benchmark code. For FEMNIST, `D_corner` is derived from corner-heavy held-out
+client label distributions. The thesis real-gradient configuration is mirrored
+in `configs/real_gradient_reliability.yaml`.

@@ -118,6 +118,9 @@ def build_config(args: argparse.Namespace, source: str, seed: int) -> RealGradie
         seed=seed,
         pretrain_steps=args.pretrain_steps,
         local_batch_size=args.local_batch_size,
+        reference_split_fraction=args.reference_split_fraction,
+        max_reference_samples=args.max_reference_samples,
+        max_evaluation_samples=args.max_evaluation_samples,
         attack_fraction=args.attack_fraction,
         corner_harm_fraction=args.corner_harm_fraction,
         noise_fraction=args.noise_fraction,
@@ -280,13 +283,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bdd-corner-values", default="rainy,snowy,foggy")
     parser.add_argument("--data-dir", default="data/real")
     parser.add_argument("--download", action="store_true")
-    parser.add_argument("--max-clients", type=int, default=160)
+    parser.add_argument("--max-clients", type=int, default=120)
     parser.add_argument("--min-samples-per-client", type=int, default=8)
-    parser.add_argument("--max-samples-per-client", type=int, default=64)
-    parser.add_argument("--clients-per-round", type=int, default=24)
-    parser.add_argument("--rounds", type=int, default=12)
-    parser.add_argument("--pretrain-steps", type=int, default=60)
+    parser.add_argument("--max-samples-per-client", type=int, default=48)
+    parser.add_argument("--clients-per-round", type=int, default=20)
+    parser.add_argument("--rounds", type=int, default=10)
+    parser.add_argument("--pretrain-steps", type=int, default=50)
     parser.add_argument("--local-batch-size", type=int, default=16)
+    parser.add_argument("--reference-split-fraction", type=float, default=0.50)
+    parser.add_argument("--max-reference-samples", type=int, default=4096)
+    parser.add_argument("--max-evaluation-samples", type=int, default=4096)
     parser.add_argument("--attack-fraction", type=float, default=0.20)
     parser.add_argument("--corner-harm-fraction", type=float, default=0.05)
     parser.add_argument("--noise-fraction", type=float, default=0.05)
@@ -318,7 +324,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=PROJECT_ROOT / "results" / "real_gradient_reliability",
+        default=PROJECT_ROOT / "results" / "real_gradient_reliability_medium",
     )
     parser.add_argument("--verbose", action="store_true")
     return parser.parse_args()

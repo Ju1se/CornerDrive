@@ -12,3 +12,7 @@ important reproducibility controls are:
 - `vehicle_pool_size: 128`
 - five generator seeds: `20260318` through `20260322`
 - `p_recheck` sweep: `0.00, 0.05, 0.10, 0.20, 0.30`
+
+The thesis real-gradient setting is `real_gradient_reliability.yaml`. It records
+the held-out split protocol used to keep client/update gradients, audit/reference
+data, and final evaluation data separate.

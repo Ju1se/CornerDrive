@@ -61,6 +61,9 @@ run_real_gradient() {
     --rounds 10 \
     --pretrain-steps 50 \
     --local-batch-size 16 \
+    --reference-split-fraction 0.50 \
+    --max-reference-samples 4096 \
+    --max-evaluation-samples 4096 \
     --output-dir results/real_gradient_reliability_medium
 }
 
@@ -86,6 +89,7 @@ Environment overrides:
   VEHICLE_POOL_SIZE=128
   ALG_SEEDS=20260318,20260319,20260320,20260321,20260322
   REAL_SOURCES=mnist,fashionmnist,femnist
+  REAL_SEEDS=20260507,20260508,20260509
 EOF
 }
 

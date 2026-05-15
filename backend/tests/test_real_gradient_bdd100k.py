@@ -4,7 +4,9 @@ import pytest
 
 from policy_agent.analysis.real_gradient_benchmark import (
     RealGradientBenchmarkConfig,
+    build_real_gradient_data_bundle,
     load_bdd100k_clients,
+    load_leaf_femnist_clients,
     load_real_clients,
     make_real_data_adaptive_policy,
     run_real_gradient_benchmark,
@@ -47,6 +49,33 @@ def _make_bdd_fixture(root):
     label_file.parent.mkdir(parents=True, exist_ok=True)
     label_file.write_text(json.dumps(records), encoding="utf-8")
     return label_file, image_root
+
+
+def _write_leaf_shard(path, *, users, samples_per_user):
+    payload = {"users": list(users), "num_samples": [], "user_data": {}}
+    for user_index, user in enumerate(users):
+        sample_count = samples_per_user[user_index]
+        payload["num_samples"].append(sample_count)
+        payload["user_data"][user] = {
+            "x": [
+                [float((sample_index + feature_index + user_index) % 2) for feature_index in range(784)]
+                for sample_index in range(sample_count)
+            ],
+            "y": [
+                (user_index + sample_index) % 10
+                for sample_index in range(sample_count)
+            ],
+        }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _make_leaf_fixture(root):
+    train_file = root / "train" / "all_data_0_niid_05_keep_0_train_9.json"
+    test_file = root / "test" / "all_data_0_niid_05_keep_0_test_9.json"
+    _write_leaf_shard(train_file, users=["train_a", "train_b", "train_c"], samples_per_user=[8, 8, 8])
+    _write_leaf_shard(test_file, users=["test_a", "test_b", "test_c", "test_d"], samples_per_user=[8, 8, 8, 8])
+    return train_file, test_file
 
 
 def test_load_bdd100k_clients_groups_attribute_pseudo_clients(tmp_path):
@@ -99,6 +128,42 @@ def test_load_real_clients_supports_bdd100k_source(tmp_path):
     assert len(clients) == 2
     assert info["source"] == "bdd100k"
     assert info["corner_labels"]
+
+
+def test_leaf_loader_defaults_to_train_split(tmp_path):
+    _make_leaf_fixture(tmp_path)
+
+    clients, info = load_leaf_femnist_clients(
+        tmp_path,
+        max_clients=10,
+        min_samples_per_client=2,
+        max_samples_per_client=8,
+    )
+
+    assert info["split"] == "train"
+    assert {client.client_id for client in clients} == {"train_a", "train_b", "train_c"}
+
+
+def test_real_gradient_bundle_uses_leaf_test_for_heldout_eval(tmp_path):
+    _make_leaf_fixture(tmp_path)
+    config = RealGradientBenchmarkConfig(
+        source="femnist",
+        leaf_data_dir=str(tmp_path),
+        max_clients=3,
+        min_samples_per_client=2,
+        max_samples_per_client=8,
+        reference_split_fraction=0.5,
+    )
+
+    bundle = build_real_gradient_data_bundle(config)
+
+    assert {client.client_id for client in bundle.clients} == {"train_a", "train_b", "train_c"}
+    assert bundle.dataset_info["split_protocol"] == "leaf_train_clients_test_reference_eval"
+    assert bundle.dataset_info["update_split"] == "leaf_train"
+    assert bundle.dataset_info["reference_split"] == "leaf_test_reference_clients"
+    assert bundle.dataset_info["evaluation_split"] == "leaf_test_evaluation_clients"
+    assert bundle.dataset_info["audit_main_sample_count"] > 0
+    assert bundle.dataset_info["eval_main_sample_count"] > 0
 
 
 def test_bdd100k_source_runs_real_gradient_smoke(tmp_path):

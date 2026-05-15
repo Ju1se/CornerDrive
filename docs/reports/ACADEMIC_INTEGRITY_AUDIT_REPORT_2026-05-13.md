@@ -1,5 +1,10 @@
 # CornerDrive Thesis/Project Academic Integrity Audit Report
 
+> Superseded note: the real-gradient numbers in this 2026-05-13 audit used the
+> earlier same-surface benchmark. The reviewer-facing held-out split fix and
+> updated real-gradient table are documented in
+> `docs/reports/REVIEWER_AUDIT_FIXES_2026-05-15.md`.
+
 审计日期：2026-05-13
 审计对象：
 

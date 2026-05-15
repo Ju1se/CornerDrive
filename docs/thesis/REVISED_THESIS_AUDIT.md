@@ -1,5 +1,10 @@
 # Revised Thesis Audit Against SAT301 PDF and Real-Gradient Results
 
+> Superseded note: this audit predates the 2026-05-15 held-out real-gradient
+> split fix. Use `docs/reports/REVIEWER_AUDIT_FIXES_2026-05-15.md` and the
+> regenerated `artifacts/tables/table_5_1_real_gradient_macro.csv` for the
+> current reviewer-facing real-gradient numbers.
+
 Audited files:
 
 - Revised thesis: user-supplied final thesis PDF outside the repo

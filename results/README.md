@@ -23,6 +23,7 @@ To regenerate thesis tables:
 
 ```bash
 bash scripts/reproduce_all.sh main
+bash scripts/reproduce_all.sh real-gradient
 bash scripts/reproduce_all.sh appendix
 python scripts/make_paper_tables.py
 ```
