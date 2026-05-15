@@ -195,7 +195,7 @@ def test_bdd100k_source_runs_real_gradient_smoke(tmp_path):
         assert result["methods"][method_id]["round_records"]
 
 
-def test_real_data_adaptive_profile_routes_cornerdrive_l1v3(tmp_path):
+def test_real_data_adaptive_profile_routes_cornerdrive_l1v3_m3(tmp_path):
     label_file, image_root = _make_bdd_fixture(tmp_path)
     config = RealGradientBenchmarkConfig(
         source="bdd100k",
@@ -214,14 +214,16 @@ def test_real_data_adaptive_profile_routes_cornerdrive_l1v3(tmp_path):
         attack_fraction=0.0,
         corner_harm_fraction=0.0,
         noise_fraction=0.0,
-        cornerdrive_l1_mode="v3_m2_norm_sign_fixed",
-        cornerdrive_l1_norm_mad_threshold=2.5,
-        cornerdrive_l1_sign_threshold=0.55,
+        cornerdrive_l1_mode="v3_m3_budgeted",
+        cornerdrive_l1_norm_mad_threshold=1.5,
+        cornerdrive_l1_sign_threshold=0.40,
+        cornerdrive_l1_queue_budget_ratio=0.80,
+        cornerdrive_l1_random_recheck_ratio=0.05,
     )
 
     result = run_real_gradient_benchmark(config, policy=make_real_data_adaptive_policy())
     round_record = result["methods"]["cornerdrive"]["round_records"][0]
 
     assert result["policy"]["theta_tol"] == 0.02
-    assert round_record["l1_router_mode"] == "v3_m2_norm_sign_fixed"
+    assert round_record["l1_router_mode"] == "v3_m3_budgeted"
     assert "l1_review_rate" in round_record

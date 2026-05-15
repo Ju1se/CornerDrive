@@ -33,12 +33,15 @@ split_protocol:
 
 policy_profile: real_data_adaptive
 l1_router:
-  mode: v3_m2_norm_sign_fixed
-  cosine_filter_threshold: 0.60
-  norm_mad_threshold: 2.5
-  sign_threshold: 0.55
+  mode: v3_m3_budgeted
+  cosine_filter_threshold: 0.50
+  cos_weight: 0.35
+  norm_weight: 0.20
+  sign_weight: 0.15
+  norm_mad_threshold: 1.5
+  sign_threshold: 0.40
   sign_topk_ratio: 0.10
-  queue_budget_ratio: 0.35
+  queue_budget_ratio: 0.80
   random_recheck_ratio: 0.05
 
 l2_audit:

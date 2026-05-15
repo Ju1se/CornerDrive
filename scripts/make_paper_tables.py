@@ -87,6 +87,45 @@ def sha256_file(path: Path) -> str | None:
     return digest.hexdigest()
 
 
+def read_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def real_gradient_provenance(real_dir: Path) -> dict[str, Any]:
+    payload = read_json(real_dir / "real_gradient_reliability_summary.json")
+    runs = payload.get("runs", [])
+    first_config = runs[0].get("config", {}) if runs else {}
+    return {
+        "summary_json": str(
+            (real_dir / "real_gradient_reliability_summary.json").relative_to(PROJECT_ROOT)
+        ),
+        "sources": payload.get("sources", []),
+        "seeds": payload.get("seeds", []),
+        "methods": payload.get("methods", []),
+        "rounds": first_config.get("rounds"),
+        "clients_per_round": first_config.get("clients_per_round"),
+        "max_clients": first_config.get("max_clients"),
+        "max_samples_per_client": first_config.get("max_samples_per_client"),
+        "reference_split_fraction": first_config.get("reference_split_fraction"),
+        "max_reference_samples": first_config.get("max_reference_samples"),
+        "max_evaluation_samples": first_config.get("max_evaluation_samples"),
+        "attack_fraction": first_config.get("attack_fraction"),
+        "corner_harm_fraction": first_config.get("corner_harm_fraction"),
+        "noise_fraction": first_config.get("noise_fraction"),
+        "cornerdrive_l1_mode": first_config.get("cornerdrive_l1_mode"),
+        "cornerdrive_l1_cos_weight": first_config.get("cornerdrive_l1_cos_weight"),
+        "cornerdrive_l1_norm_weight": first_config.get("cornerdrive_l1_norm_weight"),
+        "cornerdrive_l1_sign_weight": first_config.get("cornerdrive_l1_sign_weight"),
+        "cornerdrive_l1_norm_mad_threshold": first_config.get("cornerdrive_l1_norm_mad_threshold"),
+        "cornerdrive_l1_sign_threshold": first_config.get("cornerdrive_l1_sign_threshold"),
+        "cornerdrive_l1_sign_topk_ratio": first_config.get("cornerdrive_l1_sign_topk_ratio"),
+        "cornerdrive_l1_queue_budget_ratio": first_config.get("cornerdrive_l1_queue_budget_ratio"),
+        "cornerdrive_l1_random_recheck_ratio": first_config.get("cornerdrive_l1_random_recheck_ratio"),
+    }
+
+
 def write_provenance(args: argparse.Namespace) -> None:
     inputs = {
         "real_gradient_summary": args.real_dir / "real_gradient_reliability_summary.csv",
@@ -101,6 +140,7 @@ def write_provenance(args: argparse.Namespace) -> None:
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "script": "scripts/make_paper_tables.py",
+        "real_gradient_config": real_gradient_provenance(args.real_dir),
         "inputs": {
             key: {
                 "path": str(path.relative_to(PROJECT_ROOT)),

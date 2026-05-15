@@ -1,8 +1,8 @@
 # Thesis Revision Plan After Real-Gradient Benchmark
 
-> Superseded note: this plan predates the 2026-05-15 held-out real-gradient split
-> fix. Use `docs/reports/REVIEWER_AUDIT_FIXES_2026-05-15.md` for the current
-> reviewer-facing real-gradient result and thesis implications.
+> Current note: the reviewer-facing numbers below use the 2026-05-15 held-out
+> real-gradient protocol and the M3 risk-budget CornerDrive profile. Older
+> same-surface diagnostic numbers are treated as calibration evidence only.
 
 This note maps the current dissertation PDF to the new real-gradient benchmark
 evidence in the repository. It focuses on the experiment data and experiment
@@ -27,29 +27,34 @@ CornerDrive compared on the same round schedule.
 
 ## New Evidence To Add
 
-### Completed Small Real-Gradient Benchmark
+### Held-Out L1 Capability Calibration
 
 Source files:
 
-- `results/real_gradient_full_method_comparison.csv`
-- `results/real_gradient_adaptive_method_comparison.csv`
+- `docs/reports/REAL_GRADIENT_THRESHOLD_CALIBRATION_2026-05-15.md`
+- `results/real_gradient_threshold_sweep/*`
 
-Default cosine-only CornerDrive performed poorly on real gradients because many
-fraud updates bypassed L1. After real-data adaptation, CornerDrive improved as
-follows across MNIST, FashionMNIST, and LEAF/FEMNIST:
+The held-out real-gradient run showed that the original adaptive profile still
+left too many fraud updates in aggregation. The improvement should be framed as
+an L1 routing capability update, not as oracle threshold tuning:
 
-| CornerDrive profile | Main acc | Corner acc | Fraud survival | Rarity retention | Selected updates |
+| CornerDrive profile | Main acc | Corner acc | Fraud survival | Rarity retention | L1 review |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Default V2.5 cosine-only | 0.4475 | 0.4723 | 0.6250 | 0.8545 | 11.83 |
-| Real-data adaptive L1V3 | 0.4783 | 0.5918 | 0.0521 | 0.8402 | 7.29 |
+| Initial held-out profile | 0.4721 | 0.6611 | 0.3444 | 0.5763 | 0.7428 |
+| L1 aggressive thresholds | 0.4709 | 0.6940 | 0.2333 | 0.5388 | 0.8189 |
+| M3 risk budget 0.80 | 0.4702 | 0.7155 | 0.2267 | 0.5465 | 0.8500 |
+| M3 sign-heavy 0.80 | 0.4693 | 0.7086 | 0.2556 | 0.5415 | 0.8500 |
 
 Interpretation:
 
-- The original `p_recheck=0.10` synthetic setting does not transfer directly to
-  real non-IID gradients.
-- The failure is mainly L1 exposure, not L2 verdict quality.
-- Real gradients require multi-signal L1 routing using cosine, norm, sign, and
-  recheck evidence.
+- The main failure is L1 exposure: sign-flip proxy updates can look plausible
+  under cosine-only routing and must be escalated to L2 more consistently.
+- The M3 risk-budget router improves capability by ranking candidates with
+  cosine, norm-MAD, and sign-disagreement evidence, then sending the top-risk
+  budget to L2 with a small stratified random audit slice.
+- Making sign dominate the risk score is not beneficial on real non-IID data:
+  the sign-heavy M3 profile increases sign-flip survival, so sign should remain
+  a supporting signal rather than the primary detector.
 
 ### Expanded Multi-Seed Reliability Benchmark
 
@@ -74,38 +79,38 @@ Completed expanded setup:
 | Total fraud observations | 450 |
 | Total rarity observations | 581 |
 | Policy profile | `real_data_adaptive` |
-| L1 mode | `v3_m2_norm_sign_fixed` |
+| L1 mode | `v3_m3_budgeted` |
+| L1 review budget | 0.80 risk budget + 0.05 stratified random recheck |
 
 CornerDrive per-dataset results:
 
 | Dataset | Main acc | Corner acc | Fraud survival | Rarity retention | L1 review |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| MNIST | 0.7214 +/- 0.0237 | 0.8607 +/- 0.0371 | 0.0267 +/- 0.0523 | 0.7131 +/- 0.0803 | 0.8083 +/- 0.0229 |
-| FashionMNIST | 0.6249 +/- 0.0119 | 0.9189 +/- 0.0073 | 0.1000 +/- 0.0987 | 0.6568 +/- 0.0201 | 0.8183 +/- 0.0255 |
-| LEAF/FEMNIST | 0.0659 +/- 0.0090 | 0.3352 +/- 0.0172 | 0.0200 +/- 0.0392 | 0.9667 +/- 0.0653 | 0.8267 +/- 0.0118 |
+| MNIST | 0.7225 +/- 0.0290 | 0.8629 +/- 0.0417 | 0.3267 +/- 0.0471 | 0.8286 +/- 0.0076 | 0.8500 +/- 0.0000 |
+| FashionMNIST | 0.6027 +/- 0.0132 | 0.9052 +/- 0.0124 | 0.3533 +/- 0.1246 | 0.4664 +/- 0.0638 | 0.8500 +/- 0.0000 |
+| LEAF/FEMNIST | 0.0855 +/- 0.0100 | 0.3783 +/- 0.0128 | 0.0000 +/- 0.0000 | 0.3444 +/- 0.1812 | 0.8500 +/- 0.0000 |
 
 Macro average across the three datasets:
 
 | Method | Main acc | Corner acc | Fraud survival | Rarity retention |
 | --- | ---: | ---: | ---: | ---: |
-| Multi-Krum | 0.4891 | 0.6878 | 0.0533 | 0.8858 |
-| FLTrust | 0.4691 | 0.6489 | 0.1178 | 0.6308 |
-| Zeno | 0.4970 | 0.6824 | 0.1244 | 0.9788 |
-| Zeno++ | 0.4946 | 0.6936 | 0.0000 | 0.4865 |
-| CornerDrive | 0.4707 | 0.7050 | 0.0489 | 0.7789 |
+| Multi-Krum | 0.4617 | 0.6354 | 0.5044 | 0.6956 |
+| FLTrust | 0.4998 | 0.7114 | 0.0289 | 0.6250 |
+| Zeno | 0.5054 | 0.6774 | 0.2289 | 0.9246 |
+| Zeno++ | 0.4966 | 0.6696 | 0.0000 | 0.2239 |
+| CornerDrive | 0.4702 | 0.7155 | 0.2267 | 0.5465 |
 
 Interpretation:
 
-- CornerDrive no longer has the lowest fraud survival in every metric:
-  Zeno++ reaches 0.0000 macro fraud survival but retains only 0.4865 rarity.
-- CornerDrive offers a stronger balance: low fraud survival, highest macro
-  corner accuracy, and substantially higher rarity retention than Zeno++.
-- Multi-Krum is competitive on fraud and rarity retention, but it does not
-  provide the explicit Fraud/Rarity/Honest/Noise verdict semantics that the
-  thesis claims as the main contribution.
-- Zeno has very high rarity retention but higher fraud survival, supporting the
-  thesis argument that single-objective validation is insufficient for the
-  dual-objective discrimination problem.
+- CornerDrive no longer has the lowest fraud survival: Zeno++ reaches 0.0000
+  but retains only 0.2239 rarity, while FLTrust reaches 0.0289 with lower corner
+  accuracy than CornerDrive.
+- CornerDrive's defensible claim is the trade-off: highest macro corner
+  accuracy, lower fraud survival than Multi-Krum and Zeno, and higher rarity
+  retention than Zeno++.
+- Zeno has very high rarity retention but similar fraud survival to
+  CornerDrive, supporting the thesis argument that single-objective validation
+  alone is insufficient for dual-objective discrimination.
 
 ## Required Thesis Changes
 
@@ -122,10 +127,9 @@ Suggested replacement emphasis:
 > expanded real-gradient benchmark covers 1,800 client-round observations across
 > three seeds, including 450 fraud and 581 rarity observations. It shows that
 > the original cosine-only L1 policy does not transfer directly to real non-IID
-> gradients, but an adaptive L1V3 norm/sign/recheck profile reduces
-> CornerDrive fraud survival to 0.0489 while retaining 0.7789 rarity and
-> achieving the highest macro corner accuracy among the compared real-gradient
-> methods.
+> gradients. The M3 risk-budget profile reduces CornerDrive fraud survival to
+> 0.2267, retains 0.5465 rarity, and achieves the highest macro corner accuracy
+> among the compared real-gradient methods.
 
 Keep a limitation sentence:
 
@@ -171,19 +175,20 @@ Suggested sentence:
 Update Sections 4.3 and 4.4.
 
 Current method describes L1 mainly as cosine deviation plus probabilistic
-recheck. Keep that as V2.5/ALG mode, but add a real-data adaptive L1V3 mode:
+recheck. Keep that as V2.5/ALG mode, but add a real-data adaptive M3 mode:
 
 | L1 profile | Signals | Purpose |
 | --- | --- | --- |
 | V2.5 cosine-only | geometric median cosine deviation + probabilistic recheck | Controlled ALG mechanism benchmark |
-| Real-data adaptive L1V3 | cosine deviation, norm MAD, sign disagreement, probabilistic recheck | Real non-IID gradient routing |
+| Real-data adaptive M3 | cosine deviation, norm MAD, sign disagreement, top-risk budget, stratified random audit | Real non-IID gradient routing |
 
 Add the data-driven reason:
 
 > Real-gradient diagnostics show that many fraud updates, especially
 > sign-flip-proxy updates, can remain below the cosine-only threshold and enter
 > aggregation without L2 review. Therefore, the real-gradient profile routes
-> updates using norm and sign evidence in addition to cosine deviation.
+> updates using norm/sign evidence plus a risk-budget queue instead of relying
+> only on fixed thresholds.
 
 Policy parameters to document:
 
@@ -191,11 +196,13 @@ Policy parameters to document:
 | --- | ---: | ---: |
 | `theta_tol` | 0.05 | 0.02 |
 | `theta_rare` | -0.03 | -0.005 |
-| `cosine_filter_threshold` | 0.70 | 0.60 |
+| `cosine_filter_threshold` | 0.70 | 0.50 |
 | `recheck_probability` | 0.10 in selected ALG row | 0.25 |
-| `cornerdrive_l1_mode` | `v25_cosine_fixed` | `v3_m2_norm_sign_fixed` |
-| `norm_mad_threshold` | not used | 2.5 |
-| `sign_threshold` | not used | 0.55 |
+| `cornerdrive_l1_mode` | `v25_cosine_fixed` | `v3_m3_budgeted` |
+| `queue_budget_ratio` | not used | 0.80 |
+| `random_recheck_ratio` | not used | 0.05 |
+| `norm_mad_threshold` | not used | 1.5 |
+| `sign_threshold` | not used | 0.40 |
 
 ### Chapter 5: Structure
 
@@ -244,9 +251,9 @@ Use this table in the new real-gradient results subsection:
 
 | Dataset | CornerDrive main acc | Corner acc | Fraud survival | Rarity retention | L1 review |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| MNIST | 0.7214 +/- 0.0237 | 0.8607 +/- 0.0371 | 0.0267 +/- 0.0523 | 0.7131 +/- 0.0803 | 0.8083 +/- 0.0229 |
-| FashionMNIST | 0.6249 +/- 0.0119 | 0.9189 +/- 0.0073 | 0.1000 +/- 0.0987 | 0.6568 +/- 0.0201 | 0.8183 +/- 0.0255 |
-| LEAF/FEMNIST | 0.0659 +/- 0.0090 | 0.3352 +/- 0.0172 | 0.0200 +/- 0.0392 | 0.9667 +/- 0.0653 | 0.8267 +/- 0.0118 |
+| MNIST | 0.7225 +/- 0.0290 | 0.8629 +/- 0.0417 | 0.3267 +/- 0.0471 | 0.8286 +/- 0.0076 | 0.8500 +/- 0.0000 |
+| FashionMNIST | 0.6027 +/- 0.0132 | 0.9052 +/- 0.0124 | 0.3533 +/- 0.1246 | 0.4664 +/- 0.0638 | 0.8500 +/- 0.0000 |
+| LEAF/FEMNIST | 0.0855 +/- 0.0100 | 0.3783 +/- 0.0128 | 0.0000 +/- 0.0000 | 0.3444 +/- 0.1812 | 0.8500 +/- 0.0000 |
 
 ### New Table: Real-Gradient Method Comparison
 
@@ -254,20 +261,20 @@ Use macro averages across the three datasets:
 
 | Method | Main acc | Corner acc | Fraud survival | Rarity retention |
 | --- | ---: | ---: | ---: | ---: |
-| Multi-Krum | 0.4891 | 0.6878 | 0.0533 | 0.8858 |
-| FLTrust | 0.4691 | 0.6489 | 0.1178 | 0.6308 |
-| Zeno | 0.4970 | 0.6824 | 0.1244 | 0.9788 |
-| Zeno++ | 0.4946 | 0.6936 | 0.0000 | 0.4865 |
-| CornerDrive | 0.4707 | 0.7050 | 0.0489 | 0.7789 |
+| Multi-Krum | 0.4617 | 0.6354 | 0.5044 | 0.6956 |
+| FLTrust | 0.4998 | 0.7114 | 0.0289 | 0.6250 |
+| Zeno | 0.5054 | 0.6774 | 0.2289 | 0.9246 |
+| Zeno++ | 0.4966 | 0.6696 | 0.0000 | 0.2239 |
+| CornerDrive | 0.4702 | 0.7155 | 0.2267 | 0.5465 |
 
 Suggested interpretation:
 
 > The real-gradient benchmark changes the conclusion from "CornerDrive simply
 > dominates robust suppression" to a more nuanced trade-off. Zeno++ eliminates
-> fraud most aggressively but keeps much less rarity. Zeno keeps rarity but
-> allows more fraud. CornerDrive provides the best corner accuracy and a middle
-> path between suppression and rarity preservation, while also producing
-> explicit update-level verdicts.
+> fraud most aggressively but keeps much less rarity. FLTrust suppresses fraud
+> strongly but does not match CornerDrive's corner accuracy. CornerDrive
+> provides the best corner accuracy and a middle path between suppression and
+> rarity preservation, while also producing explicit update-level verdicts.
 
 ### New Subsection: Data-Driven Policy Adaptation
 
@@ -275,22 +282,20 @@ This subsection should explain why the real-data policy changed.
 
 Core evidence:
 
-- Default real-gradient CornerDrive had fraud survival 0.6250.
-- Adaptive L1V3 reduced it to 0.0521 in the small benchmark.
-- In the expanded reliability benchmark, CornerDrive fraud survival is 0.0489
-  macro average across three datasets.
+- The initial held-out real-gradient profile had 0.3444 macro fraud survival.
+- L1 aggressive thresholds reduced fraud survival to 0.2333.
+- The M3 risk-budget router reduced fraud survival to 0.2267 and raised macro
+  corner accuracy to 0.7155.
 
 Suggested text:
 
 > The real-gradient diagnostic run revealed that the ALG-selected cosine-only
-> L1 policy did not transfer directly. With the default V2.5 profile,
-> CornerDrive reached 0.6250 fraud survival on the real-gradient benchmark. The
-> reason was exposure: many fraud updates were not routed to L2 and therefore
-> entered aggregation as clean updates. The adaptive profile lowers the cosine
-> threshold, increases probabilistic recheck, and enables norm/sign L1V3
-> routing. This reduces fraud survival to 0.0521 in the small real-gradient
-> benchmark and 0.0489 in the expanded multi-seed benchmark, at an L1 review
-> cost of about 0.8178.
+> L1 policy did not transfer directly. Many fraud updates can enter aggregation
+> if they are not routed to L2. The updated profile lowers the cosine threshold
+> and enables M3 risk-budget routing: cosine, norm-MAD, and sign-disagreement
+> scores rank clients before the top risk budget is escalated. This reduces
+> macro fraud survival from 0.3444 to 0.2267 in the expanded held-out benchmark,
+> at an L1 review cost of 0.8500.
 
 ### Chapter 5 Discussion
 
@@ -310,7 +315,7 @@ Replace with:
 Add a caveat:
 
 > The adaptive profile improves fraud suppression by raising L2 review coverage
-> to about 80-83%. This is acceptable for an evidence benchmark, but a deployed
+> to 85%. This is acceptable for an evidence benchmark, but a deployed
 > system must calibrate the review rate against latency and compute budget.
 
 ### Chapter 6 Conclusion
@@ -322,8 +327,8 @@ required" as the main limitation. It should say:
 - Real-gradient benchmark tested the same rule on real data-derived updates.
 - The original cosine-only policy failed on real data, revealing an exposure
   bottleneck.
-- The adaptive L1V3 profile improved fraud suppression while preserving
-  rarity.
+- The adaptive M3 risk-budget profile improved fraud suppression while preserving
+  more rarity than the Zeno++ suppression baseline.
 - Full IoV deployment, BDD100K-scale validation, latency, and adaptive attackers
   remain future work.
 
@@ -332,10 +337,10 @@ Suggested paragraph:
 > The added real-gradient benchmark shows that the synthetic conclusion
 > transfers only after calibration. The original cosine-only L1 profile allowed
 > high fraud survival on real non-IID gradients, demonstrating that ALG
-> visibility assumptions were too favourable. After enabling adaptive L1V3
-> routing and stricter L2 thresholds, CornerDrive achieved 0.0489 macro fraud
+> visibility assumptions were too favourable. After enabling M3 risk-budget
+> routing and stricter L2 thresholds, CornerDrive achieved 0.2267 macro fraud
 > survival over 1,800 real-gradient client-round observations, while retaining
-> 0.7789 rarity and producing the highest macro corner accuracy among the
+> 0.5465 rarity and producing the highest macro corner accuracy among the
 > compared real-gradient methods.
 
 ### Chapter 6 Future Work

@@ -94,6 +94,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cosine-filter-threshold", type=float, default=None)
     parser.add_argument("--recheck-probability", type=float, default=None)
     parser.add_argument("--cornerdrive-l1-mode", default=None)
+    parser.add_argument("--cornerdrive-l1-cos-weight", type=float, default=None)
+    parser.add_argument("--cornerdrive-l1-norm-weight", type=float, default=None)
+    parser.add_argument("--cornerdrive-l1-sign-weight", type=float, default=None)
     parser.add_argument("--cornerdrive-l1-norm-mad-threshold", type=float, default=None)
     parser.add_argument("--cornerdrive-l1-sign-threshold", type=float, default=None)
     parser.add_argument("--cornerdrive-l1-sign-topk-ratio", type=float, default=None)
@@ -111,16 +114,22 @@ def main() -> None:
     args = parse_args()
     if args.policy_profile == "real_data_adaptive":
         l1_defaults = {
-            "cornerdrive_l1_mode": "v3_m2_norm_sign_fixed",
-            "cornerdrive_l1_norm_mad_threshold": 2.5,
-            "cornerdrive_l1_sign_threshold": 0.55,
+            "cornerdrive_l1_mode": "v3_m3_budgeted",
+            "cornerdrive_l1_cos_weight": 0.35,
+            "cornerdrive_l1_norm_weight": 0.20,
+            "cornerdrive_l1_sign_weight": 0.15,
+            "cornerdrive_l1_norm_mad_threshold": 1.5,
+            "cornerdrive_l1_sign_threshold": 0.40,
             "cornerdrive_l1_sign_topk_ratio": 0.10,
-            "cornerdrive_l1_queue_budget_ratio": 0.35,
+            "cornerdrive_l1_queue_budget_ratio": 0.80,
             "cornerdrive_l1_random_recheck_ratio": 0.05,
         }
     else:
         l1_defaults = {
             "cornerdrive_l1_mode": "v25_cosine_fixed",
+            "cornerdrive_l1_cos_weight": 0.35,
+            "cornerdrive_l1_norm_weight": 0.20,
+            "cornerdrive_l1_sign_weight": 0.15,
             "cornerdrive_l1_norm_mad_threshold": 3.0,
             "cornerdrive_l1_sign_threshold": 0.65,
             "cornerdrive_l1_sign_topk_ratio": 0.10,
@@ -160,6 +169,21 @@ def main() -> None:
         zeno_score_penalty=args.zeno_score_penalty,
         zenopp_score_temperature=args.zenopp_score_temperature,
         cornerdrive_l1_mode=args.cornerdrive_l1_mode or l1_defaults["cornerdrive_l1_mode"],
+        cornerdrive_l1_cos_weight=(
+            args.cornerdrive_l1_cos_weight
+            if args.cornerdrive_l1_cos_weight is not None
+            else l1_defaults["cornerdrive_l1_cos_weight"]
+        ),
+        cornerdrive_l1_norm_weight=(
+            args.cornerdrive_l1_norm_weight
+            if args.cornerdrive_l1_norm_weight is not None
+            else l1_defaults["cornerdrive_l1_norm_weight"]
+        ),
+        cornerdrive_l1_sign_weight=(
+            args.cornerdrive_l1_sign_weight
+            if args.cornerdrive_l1_sign_weight is not None
+            else l1_defaults["cornerdrive_l1_sign_weight"]
+        ),
         cornerdrive_l1_norm_mad_threshold=(
             args.cornerdrive_l1_norm_mad_threshold
             if args.cornerdrive_l1_norm_mad_threshold is not None

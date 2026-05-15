@@ -50,7 +50,7 @@ DEFAULT_CORNER_LABELS = (1, 7, 9)
 REAL_DATA_ADAPTIVE_POLICY_UPDATES: dict[str, float] = {
     "theta_tol": 0.02,
     "theta_rare": -0.005,
-    "cosine_filter_threshold": 0.60,
+    "cosine_filter_threshold": 0.50,
     "recheck_probability": 0.25,
 }
 
@@ -127,6 +127,9 @@ class RealGradientBenchmarkConfig:
     zeno_score_penalty: float = 1e-4
     zenopp_score_temperature: float = 0.05
     cornerdrive_l1_mode: str = "v25_cosine_fixed"
+    cornerdrive_l1_cos_weight: float = 0.35
+    cornerdrive_l1_norm_weight: float = 0.20
+    cornerdrive_l1_sign_weight: float = 0.15
     cornerdrive_l1_norm_mad_threshold: float = 3.0
     cornerdrive_l1_sign_threshold: float = 0.65
     cornerdrive_l1_sign_topk_ratio: float = 0.10
@@ -1345,6 +1348,9 @@ def _cornerdrive_l1_router_config(config: RealGradientBenchmarkConfig) -> L1Rout
         return None
     return make_l1_router_config(
         config.cornerdrive_l1_mode,
+        cos_weight=config.cornerdrive_l1_cos_weight,
+        norm_weight=config.cornerdrive_l1_norm_weight,
+        sign_weight=config.cornerdrive_l1_sign_weight,
         norm_mad_threshold=config.cornerdrive_l1_norm_mad_threshold,
         sign_threshold=config.cornerdrive_l1_sign_threshold,
         sign_topk_ratio=config.cornerdrive_l1_sign_topk_ratio,
