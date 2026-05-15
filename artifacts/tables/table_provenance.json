@@ -1,10 +1,49 @@
 {
-  "generated_at": "2026-05-15T06:04:53.117859+00:00",
+  "generated_at": "2026-05-15T08:05:03.097037+00:00",
   "script": "scripts/make_paper_tables.py",
+  "real_gradient_config": {
+    "summary_json": "results/real_gradient_reliability_medium/real_gradient_reliability_summary.json",
+    "sources": [
+      "mnist",
+      "fashionmnist",
+      "femnist"
+    ],
+    "seeds": [
+      20260507,
+      20260508,
+      20260509
+    ],
+    "methods": [
+      "krum",
+      "fltrust",
+      "zeno",
+      "zenopp",
+      "cornerdrive"
+    ],
+    "rounds": 10,
+    "clients_per_round": 20,
+    "max_clients": 120,
+    "max_samples_per_client": 48,
+    "reference_split_fraction": 0.5,
+    "max_reference_samples": 4096,
+    "max_evaluation_samples": 4096,
+    "attack_fraction": 0.2,
+    "corner_harm_fraction": 0.05,
+    "noise_fraction": 0.05,
+    "cornerdrive_l1_mode": "v3_m3_budgeted",
+    "cornerdrive_l1_cos_weight": 0.35,
+    "cornerdrive_l1_norm_weight": 0.2,
+    "cornerdrive_l1_sign_weight": 0.15,
+    "cornerdrive_l1_norm_mad_threshold": 1.5,
+    "cornerdrive_l1_sign_threshold": 0.4,
+    "cornerdrive_l1_sign_topk_ratio": 0.1,
+    "cornerdrive_l1_queue_budget_ratio": 0.8,
+    "cornerdrive_l1_random_recheck_ratio": 0.05
+  },
   "inputs": {
     "real_gradient_summary": {
       "path": "results/real_gradient_reliability_medium/real_gradient_reliability_summary.csv",
-      "sha256": "29f16d6abe69dc7f35764a2349775ab694c79429acc8c7a78305020968e76c88",
+      "sha256": "1b909c13761d6b419ac8bc5170880adc405b997840c9c7cd49fa4593bd1c4823",
       "exists": true
     },
     "v25_main_result_table": {

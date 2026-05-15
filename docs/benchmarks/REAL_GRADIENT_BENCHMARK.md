@@ -47,14 +47,27 @@ The exporter defaults to `--policy-profile real_data_adaptive`. This profile
 comes from the current MNIST, FashionMNIST, and LEAF/FEMNIST real-gradient
 calibration runs. It tightens L2 fraud tolerance, relaxes the rarity threshold
 enough to preserve mixed real clients, and routes CornerDrive through L1V3
-norm/sign screening:
+risk-budget screening:
+
+Current calibrated values:
+
+- `theta_tol = 0.02`
+- `theta_rare = -0.005`
+- `cosine_filter_threshold = 0.50`
+- `recheck_probability = 0.25`
+- `cornerdrive_l1_mode = v3_m3_budgeted`
+- `cornerdrive_l1_queue_budget_ratio = 0.80`
+- `cornerdrive_l1_random_recheck_ratio = 0.05`
+- `norm_mad_threshold = 1.5`
+- `sign_threshold = 0.40`
+- risk weights: cosine `0.35`, norm `0.20`, sign `0.15`
 
 ```bash
 python scripts/export_real_gradient_benchmark.py \
   --source leaf_femnist \
   --leaf-data-dir data/real/femnist \
   --policy-profile real_data_adaptive \
-  --cornerdrive-l1-mode v3_m2_norm_sign_fixed
+  --cornerdrive-l1-mode v3_m3_budgeted
 ```
 
 Use `--policy-profile default --cornerdrive-l1-mode v25_cosine_fixed` to
@@ -141,14 +154,15 @@ observations per dataset:
 
 | Dataset | CornerDrive main acc | Corner acc | Fraud survival | Rarity retention | L1 review |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| MNIST | 0.7227 +/- 0.0332 | 0.8580 +/- 0.0482 | 0.4133 +/- 0.1699 | 0.8436 +/- 0.0221 | 0.7567 +/- 0.0346 |
-| FashionMNIST | 0.6041 +/- 0.0050 | 0.8933 +/- 0.0352 | 0.5000 +/- 0.2159 | 0.5019 +/- 0.0377 | 0.7700 +/- 0.0294 |
-| LEAF/FEMNIST | 0.0894 +/- 0.0081 | 0.2319 +/- 0.0459 | 0.1200 +/- 0.0599 | 0.3833 +/- 0.3305 | 0.7017 +/- 0.0425 |
+| MNIST | 0.7225 +/- 0.0290 | 0.8629 +/- 0.0417 | 0.3267 +/- 0.0471 | 0.8286 +/- 0.0076 | 0.8500 +/- 0.0000 |
+| FashionMNIST | 0.6027 +/- 0.0132 | 0.9052 +/- 0.0124 | 0.3533 +/- 0.1246 | 0.4664 +/- 0.0638 | 0.8500 +/- 0.0000 |
+| LEAF/FEMNIST | 0.0855 +/- 0.0100 | 0.3783 +/- 0.0128 | 0.0000 +/- 0.0000 | 0.3444 +/- 0.1812 | 0.8500 +/- 0.0000 |
 
 Across all three datasets, this completed expanded run covers 1,800
 client-round observations, including 450 fraud observations and 581 rarity
-observations. CornerDrive averages 0.3444 fraud survival, 0.5763 rarity
-retention, and 0.7428 L1 review coverage under the held-out evaluation protocol.
+observations. With the M3 risk-budget router, CornerDrive averages 0.2267 fraud
+survival, 0.5465 rarity retention, 0.7155 corner accuracy, and 0.8500 L1 review
+coverage under the held-out evaluation protocol.
 
 ## Interpretation
 
@@ -163,16 +177,17 @@ For CornerDrive, the round records also include L1 diagnostics:
 `l1_router_mode`, `l1_suspect_total`, `l1_review_rate`, `l1_routing_reasons`,
 and fraud survival split by attack family. These fields are important for real
 data because stealthy sign-flip proxy gradients can sit inside the cosine-only
-clean region while still being caught by norm/sign-assisted L1V3 routing.
+clean region while still being caught by risk-budget L1V3 routing.
 
-Earlier same-surface calibration on MNIST, FashionMNIST, and LEAF/FEMNIST shows
-why the adaptive profile was selected for real data:
+Held-out calibration on MNIST, FashionMNIST, and LEAF/FEMNIST shows why the M3
+risk-budget profile was selected for real data:
 
-| CornerDrive profile | Main acc | Corner acc | Fraud survival | Rarity retention |
-| --- | ---: | ---: | ---: | ---: |
-| Default V2.5 cosine-only | 0.4475 | 0.4723 | 0.6250 | 0.8545 |
-| Tuned thresholds, V2.5 L1 | 0.4605 | 0.5495 | 0.3646 | 0.8663 |
-| Real-data adaptive L1V3 | 0.4783 | 0.5918 | 0.0521 | 0.8402 |
+| CornerDrive profile | Main acc | Corner acc | Fraud survival | Rarity retention | L1 review |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Initial held-out profile | 0.4721 | 0.6611 | 0.3444 | 0.5763 | 0.7428 |
+| L1 aggressive thresholds | 0.4709 | 0.6940 | 0.2333 | 0.5388 | 0.8189 |
+| M3 risk budget 0.80 | 0.4702 | 0.7155 | 0.2267 | 0.5465 | 0.8500 |
+| M3 sign-heavy 0.80 | 0.4693 | 0.7086 | 0.2556 | 0.5415 | 0.8500 |
 
 Under the held-out protocol, this profile should be treated as a frozen
 calibration point rather than a newly tuned optimum. The updated reliability

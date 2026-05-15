@@ -1,9 +1,10 @@
 # Revised Thesis Audit Against SAT301 PDF and Real-Gradient Results
 
-> Superseded note: this audit predates the 2026-05-15 held-out real-gradient
-> split fix. Use `docs/reports/REVIEWER_AUDIT_FIXES_2026-05-15.md` and the
-> regenerated `artifacts/tables/table_5_1_real_gradient_macro.csv` for the
-> current reviewer-facing real-gradient numbers.
+> Current note: this audit has been refreshed for the 2026-05-15 held-out
+> real-gradient protocol and the M3 risk-budget CornerDrive profile. Use the
+> regenerated `artifacts/tables/table_5_1_real_gradient_macro.csv` and
+> `artifacts/tables/table_5_2_cornerdrive_real_gradient_by_dataset.csv` as the
+> reviewer-facing sources.
 
 Audited files:
 
@@ -36,11 +37,11 @@ Status: consistent with `results/real_gradient_reliability_medium/real_gradient_
 
 | Method | Main acc | Corner acc | Fraud survival | Rarity retention | Check |
 | --- | ---: | ---: | ---: | ---: | --- |
-| Multi-Krum | 0.4891 | 0.6878 | 0.0533 | 0.8858 | matches CSV macro average |
-| FLTrust | 0.4691 | 0.6489 | 0.1178 | 0.6308 | matches CSV macro average |
-| Zeno | 0.4970 | 0.6824 | 0.1244 | 0.9788 | matches CSV macro average |
-| Zeno++ | 0.4946 | 0.6936 | 0.0000 | 0.4865 | matches CSV macro average |
-| CornerDrive | 0.4707 | 0.7050 | 0.0489 | 0.7789 | matches CSV macro average |
+| Multi-Krum | 0.4617 | 0.6354 | 0.5044 | 0.6956 | matches CSV macro average |
+| FLTrust | 0.4998 | 0.7114 | 0.0289 | 0.6250 | matches CSV macro average |
+| Zeno | 0.5054 | 0.6774 | 0.2289 | 0.9246 | matches CSV macro average |
+| Zeno++ | 0.4966 | 0.6696 | 0.0000 | 0.2239 | matches CSV macro average |
+| CornerDrive | 0.4702 | 0.7155 | 0.2267 | 0.5465 | matches CSV macro average |
 
 ### Table 5.3: CornerDrive Reliability Results
 
@@ -48,9 +49,9 @@ Status: consistent with `results/real_gradient_reliability_medium/real_gradient_
 
 | Dataset | Fraud survival | Rarity retention | L1 review | Check |
 | --- | ---: | ---: | ---: | --- |
-| MNIST | 0.0267 +/- 0.0523 | 0.7131 +/- 0.0803 | 0.8083 +/- 0.0229 | matches CSV |
-| FashionMNIST | 0.1000 +/- 0.0987 | 0.6568 +/- 0.0201 | 0.8183 +/- 0.0255 | matches CSV |
-| LEAF/FEMNIST | 0.0200 +/- 0.0392 | 0.9667 +/- 0.0653 | 0.8267 +/- 0.0118 | matches CSV |
+| MNIST | 0.3267 +/- 0.0471 | 0.8286 +/- 0.0076 | 0.8500 +/- 0.0000 | matches CSV |
+| FashionMNIST | 0.3533 +/- 0.1246 | 0.4664 +/- 0.0638 | 0.8500 +/- 0.0000 | matches CSV |
+| LEAF/FEMNIST | 0.0000 +/- 0.0000 | 0.3444 +/- 0.1812 | 0.8500 +/- 0.0000 | matches CSV |
 
 ### Diagnostic Adaptation Claim
 
@@ -58,9 +59,9 @@ Status: consistent with local result files.
 
 | Claim | Source | Check |
 | --- | --- | --- |
-| Default cosine-only CornerDrive fraud survival = 0.6250 | `real_gradient_full_method_comparison.csv` | matches |
-| Adaptive L1V3 small benchmark fraud survival = 0.0521 | `real_gradient_adaptive_method_comparison.csv` | matches |
-| Expanded reliability fraud survival = 0.0489 | `real_gradient_reliability_summary.csv` | matches |
+| Initial held-out CornerDrive fraud survival = 0.3444 | `docs/reports/REAL_GRADIENT_THRESHOLD_CALIBRATION_2026-05-15.md` | matches |
+| L1 aggressive threshold profile fraud survival = 0.2333 | `docs/reports/REAL_GRADIENT_THRESHOLD_CALIBRATION_2026-05-15.md` | matches |
+| M3 risk-budget expanded reliability fraud survival = 0.2267 | `real_gradient_reliability_summary.csv` | matches |
 | Expanded observations = 1,800; fraud = 450; rarity = 581 | `real_gradient_reliability_summary.csv` | matches |
 
 ## Major Improvements Over SAT301 Version
@@ -72,9 +73,8 @@ client-SGD validation was still required. The revised abstract now reports:
 
 - MNIST, FashionMNIST, and LEAF/FEMNIST real-gradient benchmark.
 - Multi-Krum, FLTrust, Zeno, Zeno++, and CornerDrive as direct baselines.
-- Default CornerDrive fraud survival 0.6250 on real gradients.
-- Adaptive L1V3 CornerDrive macro fraud survival 0.0489.
-- Rarity retention 0.7789 and highest macro corner accuracy.
+- M3 risk-budget CornerDrive macro fraud survival 0.2267.
+- Rarity retention 0.5465 and highest macro corner accuracy.
 
 This is a major improvement and aligns with the new experiment data.
 
@@ -138,11 +138,13 @@ but omits several settings that directly affect the reported results:
 - policy profile = `real_data_adaptive`;
 - `theta_tol = 0.02`;
 - `theta_rare = -0.005`;
-- `cosine_filter_threshold = 0.60`;
+- `cosine_filter_threshold = 0.50`;
 - `recheck_probability = 0.25`;
-- L1 mode = `v3_m2_norm_sign_fixed`;
-- norm MAD threshold = 2.5;
-- sign threshold = 0.55.
+- L1 mode = `v3_m3_budgeted`;
+- queue budget ratio = 0.80;
+- random recheck ratio = 0.05;
+- norm MAD threshold = 1.5;
+- sign threshold = 0.40.
 
 The text later mentions some of these, but the setup table should be
 self-contained. This matters because the thesis now makes the real-gradient
@@ -162,30 +164,24 @@ Add a second panel to Table 5.1:
 | Rarity definition | >= 30% corner-label samples |
 | Policy profile | `real_data_adaptive` |
 | L2 thresholds | `theta_tol = 0.02`, `theta_rare = -0.005` |
-| L1 thresholds | cosine 0.60, norm MAD 2.5, sign 0.55, recheck 0.25 |
+| L1 thresholds | cosine 0.50, norm MAD 1.5, sign 0.40, M3 queue budget 0.80, random recheck 0.05 |
 
-### P1. Abstract Mixes Small Diagnostic And Expanded Reliability Numbers
+### P1. Abstract Must Avoid Old Diagnostic Numbers
 
 Location: Abstract.
 
-The abstract says default CornerDrive reaches 0.6250 fraud survival on real
-gradients, then says adaptive L1V3 reaches 0.0489. Both numbers are correct, but
-they come from different real-gradient runs:
-
-- 0.6250: small default-policy diagnostic benchmark.
-- 0.0489: expanded multi-seed reliability benchmark macro average.
-
-The distinction is clear in Chapter 5, but not in the abstract.
+The abstract should no longer use the older small diagnostic numbers as the
+headline result. The reviewer-facing run is the held-out three-seed reliability
+benchmark with the M3 risk-budget profile.
 
 Recommended fix:
 
 Change the abstract sentence to:
 
-> A diagnostic real-gradient run shows that the ALG cosine-only L1 profile does
-> not transfer directly: default CornerDrive reaches 0.6250 fraud survival. In
-> the expanded three-seed reliability benchmark, adaptive L1V3 routing with
-> cosine, norm, sign, and recheck signals reduces macro fraud survival to
-> 0.0489, with 0.7789 rarity retention and the highest macro corner accuracy.
+> A held-out real-gradient run shows that the original profile does not transfer
+> directly to non-IID real gradients. The M3 risk-budget profile reduces
+> CornerDrive macro fraud survival to 0.2267, retains 0.5465 rarity, and
+> achieves the highest macro corner accuracy among the compared baselines.
 
 ### P2. Table 5.3 Float Placement Creates A Mostly Empty Page
 
@@ -286,7 +282,7 @@ Avoid these stronger claims:
 | Main experiment | ALG synthetic benchmark | Real-gradient benchmark + ALG mechanism benchmark | Strong improvement |
 | Baselines | FedAvg, GeoMed, Multi-Krum, CornerDrive | Multi-Krum, FLTrust, Zeno, Zeno++, CornerDrive for real gradients; ALG still has original baselines | Stronger literature alignment |
 | Real data | Future work | MNIST, FashionMNIST, LEAF/FEMNIST validation bridge | Strong improvement |
-| L1 policy | cosine + p-recheck | cosine-only for ALG; L1V3 norm/sign/recheck for real gradients | Data-driven improvement |
+| L1 policy | cosine + p-recheck | cosine-only for ALG; M3 risk-budget L1 for real gradients | Data-driven improvement |
 | Main limitation | real client-SGD missing | full IoV/BDD100K, latency, adaptive attackers missing | More precise |
 | Risk | synthetic-only external validity | high review-rate cost and non-vehicular real datasets | More defensible but still limited |
 
@@ -294,8 +290,8 @@ Avoid these stronger claims:
 
 1. Fix the page 26-27 float/sentence break around Table 5.1.
 2. Expand Table 5.1 with the omitted setup and policy parameters.
-3. Clarify in the abstract that 0.6250 is from the diagnostic run and 0.0489
-   from the expanded multi-seed reliability run.
+3. Clarify in the abstract that 0.2267 is the current expanded multi-seed
+   reliability fraud survival for CornerDrive.
 4. Add one sentence explaining real-data gradients are one-step fixed-model
    client gradients, not full client-SGD deployment.
 5. Clarify Table 5.2 bolding.

@@ -60,15 +60,21 @@ def source_slug(source: str) -> str:
 def profile_l1_defaults(policy_profile: str) -> dict[str, float | str]:
     if policy_profile == "real_data_adaptive":
         return {
-            "cornerdrive_l1_mode": "v3_m2_norm_sign_fixed",
-            "cornerdrive_l1_norm_mad_threshold": 2.5,
-            "cornerdrive_l1_sign_threshold": 0.55,
+            "cornerdrive_l1_mode": "v3_m3_budgeted",
+            "cornerdrive_l1_cos_weight": 0.35,
+            "cornerdrive_l1_norm_weight": 0.20,
+            "cornerdrive_l1_sign_weight": 0.15,
+            "cornerdrive_l1_norm_mad_threshold": 1.5,
+            "cornerdrive_l1_sign_threshold": 0.40,
             "cornerdrive_l1_sign_topk_ratio": 0.10,
-            "cornerdrive_l1_queue_budget_ratio": 0.35,
+            "cornerdrive_l1_queue_budget_ratio": 0.80,
             "cornerdrive_l1_random_recheck_ratio": 0.05,
         }
     return {
         "cornerdrive_l1_mode": "v25_cosine_fixed",
+        "cornerdrive_l1_cos_weight": 0.35,
+        "cornerdrive_l1_norm_weight": 0.20,
+        "cornerdrive_l1_sign_weight": 0.15,
         "cornerdrive_l1_norm_mad_threshold": 3.0,
         "cornerdrive_l1_sign_threshold": 0.65,
         "cornerdrive_l1_sign_topk_ratio": 0.10,
@@ -130,6 +136,21 @@ def build_config(args: argparse.Namespace, source: str, seed: int) -> RealGradie
         zeno_score_penalty=args.zeno_score_penalty,
         zenopp_score_temperature=args.zenopp_score_temperature,
         cornerdrive_l1_mode=str(args.cornerdrive_l1_mode or l1_defaults["cornerdrive_l1_mode"]),
+        cornerdrive_l1_cos_weight=float(
+            args.cornerdrive_l1_cos_weight
+            if args.cornerdrive_l1_cos_weight is not None
+            else l1_defaults["cornerdrive_l1_cos_weight"]
+        ),
+        cornerdrive_l1_norm_weight=float(
+            args.cornerdrive_l1_norm_weight
+            if args.cornerdrive_l1_norm_weight is not None
+            else l1_defaults["cornerdrive_l1_norm_weight"]
+        ),
+        cornerdrive_l1_sign_weight=float(
+            args.cornerdrive_l1_sign_weight
+            if args.cornerdrive_l1_sign_weight is not None
+            else l1_defaults["cornerdrive_l1_sign_weight"]
+        ),
         cornerdrive_l1_norm_mad_threshold=float(
             args.cornerdrive_l1_norm_mad_threshold
             if args.cornerdrive_l1_norm_mad_threshold is not None
@@ -201,6 +222,14 @@ def run_row(
         "policy_cosine_filter_threshold": result["policy"]["cosine_filter_threshold"],
         "policy_recheck_probability": result["policy"]["recheck_probability"],
         "cornerdrive_l1_mode": config["cornerdrive_l1_mode"],
+        "cornerdrive_l1_cos_weight": config["cornerdrive_l1_cos_weight"],
+        "cornerdrive_l1_norm_weight": config["cornerdrive_l1_norm_weight"],
+        "cornerdrive_l1_sign_weight": config["cornerdrive_l1_sign_weight"],
+        "cornerdrive_l1_norm_mad_threshold": config["cornerdrive_l1_norm_mad_threshold"],
+        "cornerdrive_l1_sign_threshold": config["cornerdrive_l1_sign_threshold"],
+        "cornerdrive_l1_sign_topk_ratio": config["cornerdrive_l1_sign_topk_ratio"],
+        "cornerdrive_l1_queue_budget_ratio": config["cornerdrive_l1_queue_budget_ratio"],
+        "cornerdrive_l1_random_recheck_ratio": config["cornerdrive_l1_random_recheck_ratio"],
     }
     for metric in METRIC_KEYS:
         row[metric] = summary.get(metric, "")
@@ -233,6 +262,11 @@ def summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "fraud_observations_total": sum(int(row["fraud_observations"]) for row in group),
             "rarity_observations_total": sum(int(row["rarity_observations"]) for row in group),
             "cornerdrive_l1_mode": first["cornerdrive_l1_mode"],
+            "cornerdrive_l1_queue_budget_ratio": first["cornerdrive_l1_queue_budget_ratio"],
+            "cornerdrive_l1_random_recheck_ratio": first["cornerdrive_l1_random_recheck_ratio"],
+            "cornerdrive_l1_cos_weight": first["cornerdrive_l1_cos_weight"],
+            "cornerdrive_l1_norm_weight": first["cornerdrive_l1_norm_weight"],
+            "cornerdrive_l1_sign_weight": first["cornerdrive_l1_sign_weight"],
         }
         for metric in METRIC_KEYS:
             values = [
@@ -311,6 +345,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cosine-filter-threshold", type=float, default=None)
     parser.add_argument("--recheck-probability", type=float, default=None)
     parser.add_argument("--cornerdrive-l1-mode", default=None)
+    parser.add_argument("--cornerdrive-l1-cos-weight", type=float, default=None)
+    parser.add_argument("--cornerdrive-l1-norm-weight", type=float, default=None)
+    parser.add_argument("--cornerdrive-l1-sign-weight", type=float, default=None)
     parser.add_argument("--cornerdrive-l1-norm-mad-threshold", type=float, default=None)
     parser.add_argument("--cornerdrive-l1-sign-threshold", type=float, default=None)
     parser.add_argument("--cornerdrive-l1-sign-topk-ratio", type=float, default=None)
