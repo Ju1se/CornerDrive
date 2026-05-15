@@ -5,7 +5,10 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
+import json
 from collections import defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
 from typing import Any
@@ -71,6 +74,54 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
+    print(f"wrote {path.relative_to(PROJECT_ROOT)}")
+
+
+def sha256_file(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def write_provenance(args: argparse.Namespace) -> None:
+    inputs = {
+        "real_gradient_summary": args.real_dir / "real_gradient_reliability_summary.csv",
+        "v25_main_result_table": args.v25_dir / "v25_main_result_table.csv",
+        "stress_rarity_overlap": args.stress_dir / "stress_rarity_overlap_summary.csv",
+        "stress_proxy_sensitivity": args.stress_dir / "stress_proxy_sensitivity_summary.csv",
+        "corner_family_divergence": args.divergence_dir / "corner_family_divergence_summary.csv",
+        "corner_harm_threshold_calibration": (
+            args.corner_harm_dir / "corner_harm_threshold_calibration_summary.csv"
+        ),
+    }
+    payload = {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "script": "scripts/make_paper_tables.py",
+        "inputs": {
+            key: {
+                "path": str(path.relative_to(PROJECT_ROOT)),
+                "sha256": sha256_file(path),
+                "exists": path.exists(),
+            }
+            for key, path in inputs.items()
+        },
+        "outputs": [
+            "artifacts/tables/table_5_1_real_gradient_macro.csv",
+            "artifacts/tables/table_5_2_cornerdrive_real_gradient_by_dataset.csv",
+            "artifacts/tables/alg_main_result_table.csv",
+            "artifacts/tables/appendix_rarity_overlap.csv",
+            "artifacts/tables/appendix_proxy_sensitivity.csv",
+            "artifacts/tables/appendix_corner_family_divergence.csv",
+            "artifacts/tables/appendix_corner_harm_threshold_calibration.csv",
+        ],
+    }
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    path = args.output_dir / "table_provenance.json"
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print(f"wrote {path.relative_to(PROJECT_ROOT)}")
 
 
@@ -233,6 +284,7 @@ def main() -> int:
     build_stress_tables(args.stress_dir, args.output_dir)
     build_divergence_table(args.divergence_dir, args.output_dir)
     build_corner_harm_table(args.corner_harm_dir, args.output_dir)
+    write_provenance(args)
     return 0
 
 

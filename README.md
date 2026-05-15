@@ -72,6 +72,9 @@ data/real/femnist/test/
 
 See `data/README.md` for details about MNIST, FashionMNIST, FEMNIST/LEAF,
 optional BDD100K calibration, and how `D_main` and `D_corner` are constructed.
+The real-gradient benchmark keeps client/update data, audit/reference data, and
+final evaluation data on deterministic separate surfaces where the source
+provides enough data.
 
 ## Reproduce Main Results
 
@@ -137,6 +140,9 @@ python scripts/export_real_gradient_reliability_benchmark.py \
   --rounds 10 \
   --pretrain-steps 50 \
   --local-batch-size 16 \
+  --reference-split-fraction 0.50 \
+  --max-reference-samples 4096 \
+  --max-evaluation-samples 4096 \
   --output-dir results/real_gradient_reliability_medium
 ```
 
@@ -161,8 +167,8 @@ Representative expected values:
 
 | Item | Expected |
 |---|---:|
-| Real-gradient CornerDrive macro fraud survival | 0.0489 |
-| Real-gradient CornerDrive macro rarity retention | 0.7789 |
+| Real-gradient CornerDrive macro fraud survival | 0.3444 |
+| Real-gradient CornerDrive macro rarity retention | 0.5763 |
 | ALG CornerDrive p=0.10 main accuracy | 85.58% ± 0.55 |
 | ALG CornerDrive p=0.10 corner accuracy | 61.24% ± 0.53 |
 | ALG CornerDrive p=0.10 sign-flip survival | 0.00% ± 0.00 |

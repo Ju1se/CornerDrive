@@ -14,12 +14,22 @@ seeds:
 data:
   data_dir: data/real
   leaf_data_dir: data/real/femnist
+  download: true
   max_clients: 120
   min_samples_per_client: 8
   max_samples_per_client: 48
   clients_per_round: 20
   rounds: 10
+  pretrain_steps: 50
   local_batch_size: 16
+  reference_split_fraction: 0.50
+  max_reference_samples: 4096
+  max_evaluation_samples: 4096
+
+split_protocol:
+  mnist_fashionmnist: "train split builds client gradients; official test split is deterministically divided into audit/reference and final evaluation subsets."
+  femnist: "LEAF train shards build client gradients; LEAF test shards are deterministically divided into audit/reference and final evaluation client subsets."
+  leakage_guard: "Final reported accuracy is computed on held-out evaluation data, not on the audit/reference surface used by FLTrust, Zeno, or CornerDrive L2."
 
 policy_profile: real_data_adaptive
 l1_router:

@@ -11,3 +11,4 @@ Expected generated files include:
 - `appendix_proxy_sensitivity.csv`
 - `appendix_corner_family_divergence.csv`
 - `appendix_corner_harm_threshold_calibration.csv`
+- `table_provenance.json`

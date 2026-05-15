@@ -1,5 +1,9 @@
 # Thesis Revision Plan After Real-Gradient Benchmark
 
+> Superseded note: this plan predates the 2026-05-15 held-out real-gradient split
+> fix. Use `docs/reports/REVIEWER_AUDIT_FIXES_2026-05-15.md` for the current
+> reviewer-facing real-gradient result and thesis implications.
+
 This note maps the current dissertation PDF to the new real-gradient benchmark
 evidence in the repository. It focuses on the experiment data and experiment
 setup changes needed to make the thesis data-driven rather than synthetic-only.

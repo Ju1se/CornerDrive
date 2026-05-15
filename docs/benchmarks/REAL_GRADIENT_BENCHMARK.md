@@ -13,9 +13,11 @@ examples. The practical benchmark route is therefore:
 1. load a public federated dataset with real client partitions, or load a
    driving dataset and construct deterministic pseudo-clients from scene
    attributes;
-2. freeze a deterministic model checkpoint;
-3. compute per-client gradients from each client's real examples;
-4. inject only the adversarial transformations needed for security stress
+2. keep client/update samples separate from server-side audit/reference samples
+   and final evaluation samples;
+3. freeze a deterministic model checkpoint;
+4. compute per-client gradients from each client's real examples;
+5. inject only the adversarial transformations needed for security stress
    tests, while keeping honest and rarity gradients data-derived.
 
 Candidate datasets:
@@ -101,21 +103,24 @@ Outputs:
 ## Larger Reliability Runs
 
 For thesis-grade evidence, use the reliability exporter instead of relying on
-one seed. It increases the default real-data scale to 160 clients, 64 samples
-per client, 24 clients per round, 12 rounds, and 3 seeds per dataset, then
-exports per-run metrics plus mean, standard deviation, and 95% confidence
-intervals:
+one seed. The default real-data profile now matches the thesis reproducibility
+manifest: 120 clients, 48 samples per client, 20 clients per round, 10 rounds,
+and 3 seeds per dataset. It exports per-run metrics plus mean, standard
+deviation, and 95% confidence intervals:
 
 ```bash
 python scripts/export_real_gradient_reliability_benchmark.py \
   --sources mnist,fashionmnist,femnist \
   --seeds 20260507,20260508,20260509 \
-  --max-clients 160 \
-  --max-samples-per-client 64 \
-  --clients-per-round 24 \
-  --rounds 12 \
-  --pretrain-steps 60 \
-  --output-dir results/real_gradient_reliability
+  --max-clients 120 \
+  --max-samples-per-client 48 \
+  --clients-per-round 20 \
+  --rounds 10 \
+  --pretrain-steps 50 \
+  --reference-split-fraction 0.50 \
+  --max-reference-samples 4096 \
+  --max-evaluation-samples 4096 \
+  --output-dir results/real_gradient_reliability_medium
 ```
 
 Outputs:
@@ -126,21 +131,24 @@ Outputs:
 - per-run `real_gradient_benchmark_summary.json` and `real_gradient_rounds.csv`
   under `runs/<source>/seed_<seed>/`
 
-The current local expanded run uses a slightly smaller but completed profile
-(`120` clients, `48` samples per client, `20` clients per round, `10` rounds,
-and `3` seeds). This raises the evidence from 128 client-round observations per
-dataset in the original single-seed run to 600 observations per dataset:
+The current local expanded run uses leakage-safe split surfaces. MNIST and
+FashionMNIST use training samples for pseudo-client gradients and split the
+official test data into audit/reference and final evaluation subsets.
+LEAF/FEMNIST uses `train/` shards for client gradients and `test/` shards for
+audit/reference and final evaluation clients. This raises the evidence from 128
+client-round observations per dataset in the original single-seed run to 600
+observations per dataset:
 
 | Dataset | CornerDrive main acc | Corner acc | Fraud survival | Rarity retention | L1 review |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| MNIST | 0.7214 +/- 0.0237 | 0.8607 +/- 0.0371 | 0.0267 +/- 0.0523 | 0.7131 +/- 0.0803 | 0.8083 +/- 0.0229 |
-| FashionMNIST | 0.6249 +/- 0.0119 | 0.9189 +/- 0.0073 | 0.1000 +/- 0.0987 | 0.6568 +/- 0.0201 | 0.8183 +/- 0.0255 |
-| LEAF/FEMNIST | 0.0659 +/- 0.0090 | 0.3352 +/- 0.0172 | 0.0200 +/- 0.0392 | 0.9667 +/- 0.0653 | 0.8267 +/- 0.0118 |
+| MNIST | 0.7227 +/- 0.0332 | 0.8580 +/- 0.0482 | 0.4133 +/- 0.1699 | 0.8436 +/- 0.0221 | 0.7567 +/- 0.0346 |
+| FashionMNIST | 0.6041 +/- 0.0050 | 0.8933 +/- 0.0352 | 0.5000 +/- 0.2159 | 0.5019 +/- 0.0377 | 0.7700 +/- 0.0294 |
+| LEAF/FEMNIST | 0.0894 +/- 0.0081 | 0.2319 +/- 0.0459 | 0.1200 +/- 0.0599 | 0.3833 +/- 0.3305 | 0.7017 +/- 0.0425 |
 
 Across all three datasets, this completed expanded run covers 1,800
 client-round observations, including 450 fraud observations and 581 rarity
-observations. CornerDrive averages 0.0489 fraud survival, 0.7789 rarity
-retention, and 0.8178 L1 review coverage.
+observations. CornerDrive averages 0.3444 fraud survival, 0.5763 rarity
+retention, and 0.7428 L1 review coverage under the held-out evaluation protocol.
 
 ## Interpretation
 
@@ -157,8 +165,8 @@ and fraud survival split by attack family. These fields are important for real
 data because stealthy sign-flip proxy gradients can sit inside the cosine-only
 clean region while still being caught by norm/sign-assisted L1V3 routing.
 
-Current local calibration on MNIST, FashionMNIST, and LEAF/FEMNIST shows why
-the adaptive profile is the default for real data:
+Earlier same-surface calibration on MNIST, FashionMNIST, and LEAF/FEMNIST shows
+why the adaptive profile was selected for real data:
 
 | CornerDrive profile | Main acc | Corner acc | Fraud survival | Rarity retention |
 | --- | ---: | ---: | ---: | ---: |
@@ -166,11 +174,11 @@ the adaptive profile is the default for real data:
 | Tuned thresholds, V2.5 L1 | 0.4605 | 0.5495 | 0.3646 | 0.8663 |
 | Real-data adaptive L1V3 | 0.4783 | 0.5918 | 0.0521 | 0.8402 |
 
-The trade-off is audit cost: the adaptive profile routes about 80-86% of each
-16-client round through L2. This is intentional for the thesis benchmark, where
-the goal is evidence-backed fraud suppression on real non-IID gradients; a
-larger deployment can lower review coverage with `v3_m3_budgeted` once the
-fraud-pressure target is fixed.
+Under the held-out protocol, this profile should be treated as a frozen
+calibration point rather than a newly tuned optimum. The updated reliability
+table is intentionally not retuned on the same final seeds; it exposes the
+generalization cost that a reviewer would ask to see. Future tuning should use a
+separate calibration split and report only on untouched seeds or datasets.
 
 `--rarity-label-fraction-threshold` controls when a real client is treated as
 corner/rarity-heavy. The default `0.30` is intentionally below a strict

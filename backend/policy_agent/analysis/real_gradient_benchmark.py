@@ -24,7 +24,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import mean
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
 import numpy as np
 import torch
@@ -83,6 +83,18 @@ class ClientGradient:
 
 
 @dataclass(frozen=True)
+class RealGradientDataBundle:
+    """Leakage-safe data surfaces for the real-gradient benchmark."""
+
+    clients: list[RealClient]
+    audit_main_dataset: torch.utils.data.Dataset
+    audit_corner_dataset: torch.utils.data.Dataset
+    eval_main_dataset: torch.utils.data.Dataset
+    eval_corner_dataset: torch.utils.data.Dataset
+    dataset_info: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class RealGradientBenchmarkConfig:
     source: str = "auto"
     leaf_data_dir: str = "data/real/femnist"
@@ -103,6 +115,9 @@ class RealGradientBenchmarkConfig:
     seed: int = 20260507
     pretrain_steps: int = 40
     local_batch_size: int = 16
+    reference_split_fraction: float = 0.50
+    max_reference_samples: int = 4096
+    max_evaluation_samples: int = 4096
     attack_fraction: float = 0.20
     corner_harm_fraction: float = 0.05
     noise_fraction: float = 0.05
@@ -165,10 +180,15 @@ def _client_from_arrays(
     return RealClient(client_id=client_id, inputs=inputs, targets=targets)
 
 
-def _leaf_json_files(root: Path) -> list[Path]:
+def _leaf_json_files(root: Path, *, split: str | None = None) -> list[Path]:
+    search_root = root / split if split and (root / split).exists() else root
     candidates: list[Path] = []
-    for pattern in ("**/all_data*.json", "**/*train*.json", "**/*test*.json"):
-        candidates.extend(root.glob(pattern))
+    if split in {"train", "test"}:
+        patterns = ("**/all_data*.json", f"**/*{split}*.json")
+    else:
+        patterns = ("**/all_data*.json", "**/*train*.json", "**/*test*.json")
+    for pattern in patterns:
+        candidates.extend(search_root.glob(pattern))
     return sorted(set(candidates))
 
 
@@ -178,13 +198,15 @@ def load_leaf_femnist_clients(
     max_clients: int,
     min_samples_per_client: int,
     max_samples_per_client: int,
+    split: str | None = "train",
 ) -> tuple[list[RealClient], dict[str, Any]]:
     """Load LEAF/FEMNIST processed JSON clients."""
     if not root.exists():
         raise FileNotFoundError(f"LEAF data directory does not exist: {root}")
 
     clients: list[RealClient] = []
-    for json_file in _leaf_json_files(root):
+    json_files = _leaf_json_files(root, split=split)
+    for json_file in json_files:
         payload = json.loads(json_file.read_text())
         users = payload.get("users", [])
         user_data = payload.get("user_data", {})
@@ -203,7 +225,8 @@ def load_leaf_femnist_clients(
                 return clients, {
                     "source": "leaf_femnist",
                     "root": str(root),
-                    "files_scanned": len(_leaf_json_files(root)),
+                    "files_scanned": len(json_files),
+                    "split": split or "all",
                     "real_client_partitions": True,
                     "corner_labels": list(DEFAULT_CORNER_LABELS),
                 }
@@ -214,13 +237,14 @@ def load_leaf_femnist_clients(
     return clients, {
         "source": "leaf_femnist",
         "root": str(root),
-        "files_scanned": len(_leaf_json_files(root)),
+        "files_scanned": len(json_files),
+        "split": split or "all",
         "real_client_partitions": True,
         "corner_labels": list(DEFAULT_CORNER_LABELS),
     }
 
 
-def _load_torchvision_dataset(name: str, root: Path, download: bool):
+def _load_torchvision_dataset(name: str, root: Path, download: bool, *, train: bool = True):
     try:
         from torchvision import datasets, transforms
     except ImportError as exc:
@@ -235,9 +259,9 @@ def _load_torchvision_dataset(name: str, root: Path, download: bool):
     ])
     dataset_name = name.lower()
     if dataset_name in {"mnist", "torchvision_mnist"}:
-        return datasets.MNIST(root=str(root), train=True, transform=transform, download=download)
+        return datasets.MNIST(root=str(root), train=train, transform=transform, download=download)
     if dataset_name in {"fashionmnist", "fashion_mnist", "torchvision_fashionmnist"}:
-        return datasets.FashionMNIST(root=str(root), train=True, transform=transform, download=download)
+        return datasets.FashionMNIST(root=str(root), train=train, transform=transform, download=download)
     raise ValueError(f"Unsupported torchvision dataset source: {name}")
 
 
@@ -252,7 +276,7 @@ def load_torchvision_clients(
     seed: int,
 ) -> tuple[list[RealClient], dict[str, Any]]:
     """Build deterministic non-IID clients from a real torchvision dataset."""
-    dataset = _load_torchvision_dataset(name, root, download)
+    dataset = _load_torchvision_dataset(name, root, download, train=True)
     rng = random.Random(seed)
 
     indices_by_label: dict[int, list[int]] = {}
@@ -587,6 +611,7 @@ def load_real_clients(config: RealGradientBenchmarkConfig) -> tuple[list[RealCli
                 max_clients=config.max_clients,
                 min_samples_per_client=config.min_samples_per_client,
                 max_samples_per_client=config.max_samples_per_client,
+                split="train",
             )
         except Exception:
             if source != "auto":
@@ -598,6 +623,7 @@ def load_real_clients(config: RealGradientBenchmarkConfig) -> tuple[list[RealCli
             max_clients=config.max_clients,
             min_samples_per_client=config.min_samples_per_client,
             max_samples_per_client=config.max_samples_per_client,
+            split="train",
         )
 
     if source in {"auto", "bdd", "bdd100k"} and bdd_root.exists():
@@ -646,6 +672,121 @@ def load_real_clients(config: RealGradientBenchmarkConfig) -> tuple[list[RealCli
     )
 
 
+def _cap_indices(indices: Sequence[int], limit: int) -> list[int]:
+    if limit <= 0:
+        return list(indices)
+    return list(indices[:limit])
+
+
+def _tensor_dataset_from_source(
+    dataset: torch.utils.data.Dataset,
+    indices: Sequence[int],
+) -> torch.utils.data.TensorDataset:
+    xs: list[torch.Tensor] = []
+    ys: list[torch.Tensor] = []
+    for idx in indices:
+        sample, target = dataset[idx]
+        xs.append(torch.as_tensor(sample).view(-1).float())
+        ys.append(torch.as_tensor(target, dtype=torch.long).view(()))
+    if not xs:
+        raise ValueError("Cannot build a TensorDataset from an empty index set")
+    return torch.utils.data.TensorDataset(torch.stack(xs), torch.stack(ys).long())
+
+
+def _split_dataset_by_corner(
+    dataset: torch.utils.data.TensorDataset,
+    corner_labels: tuple[int, ...],
+) -> tuple[torch.utils.data.TensorDataset, torch.utils.data.TensorDataset]:
+    inputs, targets = dataset.tensors
+    corner_mask = torch.zeros_like(targets, dtype=torch.bool)
+    for label in corner_labels:
+        corner_mask |= targets == label
+
+    if int(corner_mask.sum().item()) < 4:
+        corner_mask[: max(4, min(16, targets.numel()))] = True
+
+    return dataset, torch.utils.data.TensorDataset(inputs[corner_mask], targets[corner_mask])
+
+
+def _split_clients_deterministically(
+    clients: list[RealClient],
+    *,
+    seed: int,
+    reference_fraction: float,
+) -> tuple[list[RealClient], list[RealClient]]:
+    if len(clients) < 2:
+        return clients, clients
+    shuffled = list(clients)
+    random.Random(seed).shuffle(shuffled)
+    split_at = int(round(len(shuffled) * reference_fraction))
+    split_at = max(1, min(split_at, len(shuffled) - 1))
+    return shuffled[:split_at], shuffled[split_at:]
+
+
+def _partition_client_pool(
+    clients: list[RealClient],
+    *,
+    seed: int,
+) -> tuple[list[RealClient], list[RealClient], list[RealClient], str]:
+    """Fallback partition for sources without a clean official train/test split."""
+
+    if len(clients) < 3:
+        return clients, clients, clients, "shared_tiny_fixture"
+
+    shuffled = list(clients)
+    random.Random(seed).shuffle(shuffled)
+    eval_count = max(1, len(shuffled) // 5)
+    reference_count = max(1, len(shuffled) // 5)
+    update_count = len(shuffled) - reference_count - eval_count
+    if update_count < 1:
+        return clients, clients, clients, "shared_tiny_fixture"
+
+    update_clients = shuffled[:update_count]
+    reference_clients = shuffled[update_count:update_count + reference_count]
+    eval_clients = shuffled[update_count + reference_count:]
+    return update_clients, reference_clients, eval_clients, "deterministic_client_partition"
+
+
+def _load_torchvision_reference_eval_datasets(
+    name: str,
+    root: Path,
+    *,
+    download: bool,
+    seed: int,
+    corner_labels: tuple[int, ...],
+    reference_fraction: float,
+    max_reference_samples: int,
+    max_evaluation_samples: int,
+) -> tuple[
+    torch.utils.data.Dataset,
+    torch.utils.data.Dataset,
+    torch.utils.data.Dataset,
+    torch.utils.data.Dataset,
+    dict[str, Any],
+]:
+    dataset = _load_torchvision_dataset(name, root, download, train=False)
+    indices = list(range(len(dataset)))
+    random.Random(seed + 17).shuffle(indices)
+    split_at = int(round(len(indices) * reference_fraction))
+    split_at = max(1, min(split_at, len(indices) - 1))
+
+    reference_indices = _cap_indices(indices[:split_at], max_reference_samples)
+    evaluation_indices = _cap_indices(indices[split_at:], max_evaluation_samples)
+    reference_dataset = _tensor_dataset_from_source(dataset, reference_indices)
+    evaluation_dataset = _tensor_dataset_from_source(dataset, evaluation_indices)
+    audit_main, audit_corner = _split_dataset_by_corner(reference_dataset, corner_labels)
+    eval_main, eval_corner = _split_dataset_by_corner(evaluation_dataset, corner_labels)
+
+    return audit_main, audit_corner, eval_main, eval_corner, {
+        "split_protocol": "official_train_clients_test_reference_eval",
+        "update_split": "torchvision_train",
+        "reference_split": "torchvision_test_reference",
+        "evaluation_split": "torchvision_test_evaluation",
+        "reference_sample_count": len(reference_dataset),
+        "evaluation_sample_count": len(evaluation_dataset),
+    }
+
+
 def _make_tensor_dataset(clients: Iterable[RealClient]) -> torch.utils.data.TensorDataset:
     inputs = torch.cat([client.inputs for client in clients], dim=0)
     targets = torch.cat([client.targets for client in clients], dim=0)
@@ -668,6 +809,109 @@ def _split_reference_clients(
     main_dataset = torch.utils.data.TensorDataset(all_inputs, all_targets)
     corner_dataset = torch.utils.data.TensorDataset(all_inputs[corner_mask], all_targets[corner_mask])
     return main_dataset, corner_dataset
+
+
+def build_real_gradient_data_bundle(config: RealGradientBenchmarkConfig) -> RealGradientDataBundle:
+    clients, dataset_info = load_real_clients(config)
+    data_root = PROJECT_ROOT / config.data_dir
+    leaf_root = PROJECT_ROOT / config.leaf_data_dir
+    corner_labels = tuple(
+        int(label)
+        for label in dataset_info.get("corner_labels", list(DEFAULT_CORNER_LABELS))
+    )
+    dataset_source = str(dataset_info.get("source", config.source)).lower()
+
+    split_info: dict[str, Any]
+    if dataset_source in {"mnist", "torchvision_mnist", "fashionmnist", "torchvision_fashionmnist"}:
+        audit_main, audit_corner, eval_main, eval_corner, split_info = _load_torchvision_reference_eval_datasets(
+            dataset_source,
+            data_root,
+            download=config.download,
+            seed=config.seed,
+            corner_labels=corner_labels,
+            reference_fraction=config.reference_split_fraction,
+            max_reference_samples=config.max_reference_samples,
+            max_evaluation_samples=config.max_evaluation_samples,
+        )
+    elif dataset_source == "leaf_femnist":
+        try:
+            heldout_clients, heldout_info = load_leaf_femnist_clients(
+                leaf_root,
+                max_clients=max(config.max_clients, 2),
+                min_samples_per_client=config.min_samples_per_client,
+                max_samples_per_client=config.max_samples_per_client,
+                split="test",
+            )
+            reference_clients, eval_clients = _split_clients_deterministically(
+                heldout_clients,
+                seed=config.seed + 17,
+                reference_fraction=config.reference_split_fraction,
+            )
+            audit_main, audit_corner = _split_reference_clients(reference_clients, corner_labels)
+            eval_main, eval_corner = _split_reference_clients(eval_clients, corner_labels)
+            split_info = {
+                "split_protocol": "leaf_train_clients_test_reference_eval",
+                "update_split": "leaf_train",
+                "reference_split": "leaf_test_reference_clients",
+                "evaluation_split": "leaf_test_evaluation_clients",
+                "heldout_files_scanned": heldout_info.get("files_scanned", 0),
+                "heldout_client_count": len(heldout_clients),
+            }
+        except Exception as exc:
+            update_clients, reference_clients, eval_clients, strategy = _partition_client_pool(
+                clients,
+                seed=config.seed + 17,
+            )
+            clients = update_clients
+            audit_main, audit_corner = _split_reference_clients(reference_clients, corner_labels)
+            eval_main, eval_corner = _split_reference_clients(eval_clients, corner_labels)
+            split_info = {
+                "split_protocol": strategy,
+                "split_warning": f"FEMNIST test split unavailable: {exc}",
+                "update_split": "leaf_partition_update",
+                "reference_split": "leaf_partition_reference",
+                "evaluation_split": "leaf_partition_evaluation",
+            }
+    else:
+        update_clients, reference_clients, eval_clients, strategy = _partition_client_pool(
+            clients,
+            seed=config.seed + 17,
+        )
+        clients = update_clients
+        audit_main, audit_corner = _split_reference_clients(reference_clients, corner_labels)
+        eval_main, eval_corner = _split_reference_clients(eval_clients, corner_labels)
+        split_info = {
+            "split_protocol": strategy,
+            "update_split": f"{dataset_source}_partition_update",
+            "reference_split": f"{dataset_source}_partition_reference",
+            "evaluation_split": f"{dataset_source}_partition_evaluation",
+        }
+
+    dataset_info = {
+        **dataset_info,
+        **split_info,
+        "data_leakage_guard": (
+            "client/update gradients, audit/reference gradients, and final "
+            "evaluation metrics are constructed from separate deterministic "
+            "surfaces when the source exposes enough data."
+        ),
+        "update_client_count": len(clients),
+        "audit_main_sample_count": len(audit_main),
+        "audit_corner_sample_count": len(audit_corner),
+        "eval_main_sample_count": len(eval_main),
+        "eval_corner_sample_count": len(eval_corner),
+        "reference_split_fraction": config.reference_split_fraction,
+        "max_reference_samples": config.max_reference_samples,
+        "max_evaluation_samples": config.max_evaluation_samples,
+    }
+    return RealGradientDataBundle(
+        clients=clients,
+        audit_main_dataset=audit_main,
+        audit_corner_dataset=audit_corner,
+        eval_main_dataset=eval_main,
+        eval_corner_dataset=eval_corner,
+        dataset_info=dataset_info,
+    )
 
 
 def _flat_gradient(model: nn.Module) -> np.ndarray:
@@ -725,6 +969,15 @@ def _gradient_for_dataset(
             break
     client = RealClient("reference", torch.cat(inputs), torch.cat(targets))
     return compute_client_gradient(model, client, batch_size=batch_size)
+
+
+def _max_target_in_dataset(dataset: torch.utils.data.Dataset) -> int:
+    if isinstance(dataset, torch.utils.data.TensorDataset):
+        return int(dataset.tensors[1].max().item())
+    max_target = 0
+    for _sample, target in torch.utils.data.DataLoader(dataset, batch_size=256):
+        max_target = max(max_target, int(torch.as_tensor(target).max().item()))
+    return max_target
 
 
 def _pretrain_model(
@@ -1106,14 +1359,22 @@ def run_real_gradient_benchmark(
 ) -> dict[str, Any]:
     config = config or RealGradientBenchmarkConfig()
     policy = policy or DEFAULT_POLICY
-    clients, dataset_info = load_real_clients(config)
+    data_bundle = build_real_gradient_data_bundle(config)
+    clients = data_bundle.clients
+    dataset_info = data_bundle.dataset_info
     rng = random.Random(config.seed)
 
     input_dim = int(clients[0].inputs.view(clients[0].inputs.size(0), -1).size(1))
-    output_dim = int(max(int(client.targets.max().item()) for client in clients) + 1)
     corner_labels = tuple(
         int(label)
         for label in dataset_info.get("corner_labels", list(DEFAULT_CORNER_LABELS))
+    )
+    output_dim = int(
+        max(
+            max(int(client.targets.max().item()) for client in clients),
+            _max_target_in_dataset(data_bundle.audit_main_dataset),
+            _max_target_in_dataset(data_bundle.eval_main_dataset),
+        ) + 1
     )
     initial_model = _pretrain_model(
         clients[: max(config.clients_per_round, 8)],
@@ -1123,11 +1384,14 @@ def run_real_gradient_benchmark(
         batch_size=config.local_batch_size,
         seed=config.seed,
     )
-    main_dataset, corner_dataset = _split_reference_clients(clients, corner_labels)
+    audit_main_dataset = data_bundle.audit_main_dataset
+    audit_corner_dataset = data_bundle.audit_corner_dataset
+    eval_main_dataset = data_bundle.eval_main_dataset
+    eval_corner_dataset = data_bundle.eval_corner_dataset
     auditor = DualChannelAuditor(
         model=copy.deepcopy(initial_model),
-        main_dataset=main_dataset,
-        corner_dataset=corner_dataset,
+        main_dataset=audit_main_dataset,
+        corner_dataset=audit_corner_dataset,
     )
     auditor.apply_policy(policy)
 
@@ -1165,16 +1429,16 @@ def run_real_gradient_benchmark(
 
         for method_id, method in methods.items():
             model = method["model"]
-            before_main = _evaluate_model(model, main_dataset, batch_size=config.local_batch_size)
-            before_corner = _evaluate_model(model, corner_dataset, batch_size=config.local_batch_size)
+            before_main = _evaluate_model(model, eval_main_dataset, batch_size=config.local_batch_size)
+            before_corner = _evaluate_model(model, eval_corner_dataset, batch_size=config.local_batch_size)
             main_reference = _gradient_for_dataset(
                 model,
-                main_dataset,
+                audit_main_dataset,
                 batch_size=config.local_batch_size,
             )
             corner_reference = _gradient_for_dataset(
                 model,
-                corner_dataset,
+                audit_corner_dataset,
                 batch_size=config.local_batch_size,
             )
             round_gradients = _build_round_gradients(
@@ -1225,7 +1489,7 @@ def run_real_gradient_benchmark(
                 scores = _zeno_scores(
                     model,
                     raw_gradients,
-                    main_dataset,
+                    audit_main_dataset,
                     batch_size=config.local_batch_size,
                     learning_rate=L2_LEARNING_RATE,
                     score_penalty=config.zeno_score_penalty,
@@ -1243,7 +1507,7 @@ def run_real_gradient_benchmark(
                 scores = _zeno_scores(
                     model,
                     raw_gradients,
-                    main_dataset,
+                    audit_main_dataset,
                     batch_size=config.local_batch_size,
                     learning_rate=L2_LEARNING_RATE,
                     score_penalty=config.zeno_score_penalty,
@@ -1275,8 +1539,8 @@ def run_real_gradient_benchmark(
                 predicted = ["HONEST" for _ in raw_gradients]
                 runtime_auditor = DualChannelAuditor(
                     model=copy.deepcopy(model),
-                    main_dataset=main_dataset,
-                    corner_dataset=corner_dataset,
+                    main_dataset=audit_main_dataset,
+                    corner_dataset=audit_corner_dataset,
                 )
                 runtime_auditor.apply_policy(policy)
                 for idx in sorted(suspect_indices):
@@ -1292,8 +1556,8 @@ def run_real_gradient_benchmark(
                 all_predictions["cornerdrive"].extend(predicted)
 
             method["model"] = _apply_gradient(model, aggregated, L2_LEARNING_RATE)
-            after_main = _evaluate_model(method["model"], main_dataset, batch_size=config.local_batch_size)
-            after_corner = _evaluate_model(method["model"], corner_dataset, batch_size=config.local_batch_size)
+            after_main = _evaluate_model(method["model"], eval_main_dataset, batch_size=config.local_batch_size)
+            after_corner = _evaluate_model(method["model"], eval_corner_dataset, batch_size=config.local_batch_size)
             selected_truth = Counter(truth[idx] for idx in selected_indices)
             fraud_total = max(sum(1 for label in truth if label == "FRAUD"), 1)
             rarity_total = max(sum(1 for label in truth if label == "RARITY"), 1)

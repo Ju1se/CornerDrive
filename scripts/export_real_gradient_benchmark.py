@@ -69,6 +69,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=20260507)
     parser.add_argument("--pretrain-steps", type=int, default=40)
     parser.add_argument("--local-batch-size", type=int, default=16)
+    parser.add_argument("--reference-split-fraction", type=float, default=0.50)
+    parser.add_argument("--max-reference-samples", type=int, default=4096)
+    parser.add_argument("--max-evaluation-samples", type=int, default=4096)
     parser.add_argument("--attack-fraction", type=float, default=0.20)
     parser.add_argument("--corner-harm-fraction", type=float, default=0.05)
     parser.add_argument("--noise-fraction", type=float, default=0.05)
@@ -145,6 +148,9 @@ def main() -> None:
         seed=args.seed,
         pretrain_steps=args.pretrain_steps,
         local_batch_size=args.local_batch_size,
+        reference_split_fraction=args.reference_split_fraction,
+        max_reference_samples=args.max_reference_samples,
+        max_evaluation_samples=args.max_evaluation_samples,
         attack_fraction=args.attack_fraction,
         corner_harm_fraction=args.corner_harm_fraction,
         noise_fraction=args.noise_fraction,

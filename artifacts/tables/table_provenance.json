@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-05-15T06:04:53.117859+00:00",
+  "script": "scripts/make_paper_tables.py",
+  "inputs": {
+    "real_gradient_summary": {
+      "path": "results/real_gradient_reliability_medium/real_gradient_reliability_summary.csv",
+      "sha256": "29f16d6abe69dc7f35764a2349775ab694c79429acc8c7a78305020968e76c88",
+      "exists": true
+    },
+    "v25_main_result_table": {
+      "path": "results/audit_reproduction/v25_artifacts_b24/v25_main_result_table.csv",
+      "sha256": "fb8571d709a96e18a915323a66b517e64be3bd1d235719b8ad42e5f174da14d9",
+      "exists": true
+    },
+    "stress_rarity_overlap": {
+      "path": "results/audit_reproduction/v25_stress_tests_b24/stress_rarity_overlap_summary.csv",
+      "sha256": "b41242629dbeb8aaab050657b282b231c1c11bacbfc843ac25115178c77d7846",
+      "exists": true
+    },
+    "stress_proxy_sensitivity": {
+      "path": "results/audit_reproduction/v25_stress_tests_b24/stress_proxy_sensitivity_summary.csv",
+      "sha256": "7d026a8edd8cfbf0806ba3e93ca35e861e626237005e4579862b32ab1b84fef4",
+      "exists": true
+    },
+    "corner_family_divergence": {
+      "path": "results/audit_reproduction/corner_family_divergence_b24/corner_family_divergence_summary.csv",
+      "sha256": "415a4c2db6b3f91f384a9e2da5e6205044c2e5e0cb37dbcf8cd466dca785c1d1",
+      "exists": true
+    },
+    "corner_harm_threshold_calibration": {
+      "path": "results/audit_reproduction/corner_harm_threshold_calibration_b24/corner_harm_threshold_calibration_summary.csv",
+      "sha256": "1d62a6b56f881ee0243cad6b70886d55a25dafa722e6911fb50e9ecb16567ca9",
+      "exists": true
+    }
+  },
+  "outputs": [
+    "artifacts/tables/table_5_1_real_gradient_macro.csv",
+    "artifacts/tables/table_5_2_cornerdrive_real_gradient_by_dataset.csv",
+    "artifacts/tables/alg_main_result_table.csv",
+    "artifacts/tables/appendix_rarity_overlap.csv",
+    "artifacts/tables/appendix_proxy_sensitivity.csv",
+    "artifacts/tables/appendix_corner_family_divergence.csv",
+    "artifacts/tables/appendix_corner_harm_threshold_calibration.csv"
+  ]
+}
