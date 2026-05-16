@@ -26,22 +26,32 @@ for candidate in (PROJECT_ROOT, BACKEND_DIR):
 from common.schemas import DEFAULT_POLICY  # noqa: E402
 from policy_agent.analysis.real_gradient_benchmark import (  # noqa: E402
     RealGradientBenchmarkConfig,
-    make_real_data_adaptive_policy,
+    make_real_data_adaptive_v41_policy,
     run_real_gradient_benchmark,
     write_real_gradient_outputs,
 )
 
 
 DEFAULT_SOURCES = "mnist,fashionmnist,femnist"
-DEFAULT_SEEDS = "20260507,20260508,20260509"
+DEFAULT_SEEDS = "20260507,20260508,20260509,20260510,20260511,20260512,20260513,20260514,20260515,20260516"
 METHOD_ORDER = ("krum", "fltrust", "zeno", "zenopp", "cornerdrive")
 METRIC_KEYS = (
     "main_accuracy_avg",
     "corner_accuracy_avg",
     "fraud_survival_rate_avg",
     "rarity_retention_rate_avg",
+    "effective_fraud_mass_survival_avg",
+    "effective_rarity_mass_retention_avg",
     "selected_total_avg",
     "l1_review_rate_avg",
+    "l1_fraud_recall_avg",
+    "l2_fraud_reject_rate_given_routed_avg",
+    "fraud_survival_unrouted_avg",
+    "fraud_survival_l2_accepted_avg",
+    "l2_fraud_as_rarity_accept_rate_avg",
+    "l2_conflict_update_reject_rate_avg",
+    "l2_accepted_positive_main_drift_rate_avg",
+    "fraud_quarantine_rate_avg",
 )
 
 
@@ -58,9 +68,9 @@ def source_slug(source: str) -> str:
 
 
 def profile_l1_defaults(policy_profile: str) -> dict[str, float | str]:
-    if policy_profile == "real_data_adaptive":
+    if policy_profile in {"real_data_adaptive", "real_data_adaptive_v41"}:
         return {
-            "cornerdrive_l1_mode": "v3_m3_budgeted",
+            "cornerdrive_l1_mode": "v4_m4_dual_proxy_budgeted",
             "cornerdrive_l1_cos_weight": 0.35,
             "cornerdrive_l1_norm_weight": 0.20,
             "cornerdrive_l1_sign_weight": 0.15,
@@ -84,16 +94,16 @@ def profile_l1_defaults(policy_profile: str) -> dict[str, float | str]:
 
 
 def build_policy(args: argparse.Namespace):
-    policy = (
-        make_real_data_adaptive_policy()
-        if args.policy_profile == "real_data_adaptive"
-        else DEFAULT_POLICY
-    )
+    if args.policy_profile in {"real_data_adaptive", "real_data_adaptive_v41"}:
+        policy = make_real_data_adaptive_v41_policy()
+    else:
+        policy = DEFAULT_POLICY
     updates = {
         key: value
         for key, value in {
             "theta_tol": args.theta_tol,
             "theta_rare": args.theta_rare,
+            "theta_rarity_main_tol": args.theta_rarity_main_tol,
             "cosine_filter_threshold": args.cosine_filter_threshold,
             "recheck_probability": args.recheck_probability,
         }.items()
@@ -219,6 +229,7 @@ def run_row(
         "honest_observations": truth_counts.get("HONEST", 0),
         "policy_theta_tol": result["policy"]["theta_tol"],
         "policy_theta_rare": result["policy"]["theta_rare"],
+        "policy_theta_rarity_main_tol": result["policy"].get("theta_rarity_main_tol", ""),
         "policy_cosine_filter_threshold": result["policy"]["cosine_filter_threshold"],
         "policy_recheck_probability": result["policy"]["recheck_probability"],
         "cornerdrive_l1_mode": config["cornerdrive_l1_mode"],
@@ -230,6 +241,11 @@ def run_row(
         "cornerdrive_l1_sign_topk_ratio": config["cornerdrive_l1_sign_topk_ratio"],
         "cornerdrive_l1_queue_budget_ratio": config["cornerdrive_l1_queue_budget_ratio"],
         "cornerdrive_l1_random_recheck_ratio": config["cornerdrive_l1_random_recheck_ratio"],
+        "cornerdrive_l1_theta_corner_harm_proxy": config.get("cornerdrive_l1_theta_corner_harm_proxy", ""),
+        "cornerdrive_l1_quarantine_risk_threshold": config.get("cornerdrive_l1_quarantine_risk_threshold", ""),
+        "cornerdrive_l1_low_weight_risk_threshold": config.get("cornerdrive_l1_low_weight_risk_threshold", ""),
+        "cornerdrive_l1_safe_weight": config.get("cornerdrive_l1_safe_weight", ""),
+        "cornerdrive_l1_low_weight": config.get("cornerdrive_l1_low_weight", ""),
     }
     for metric in METRIC_KEYS:
         row[metric] = summary.get(metric, "")
@@ -261,12 +277,20 @@ def summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "client_observations_total": sum(int(row["client_observations"]) for row in group),
             "fraud_observations_total": sum(int(row["fraud_observations"]) for row in group),
             "rarity_observations_total": sum(int(row["rarity_observations"]) for row in group),
+            "policy_theta_tol": first.get("policy_theta_tol", ""),
+            "policy_theta_rare": first.get("policy_theta_rare", ""),
+            "policy_theta_rarity_main_tol": first.get("policy_theta_rarity_main_tol", ""),
             "cornerdrive_l1_mode": first["cornerdrive_l1_mode"],
             "cornerdrive_l1_queue_budget_ratio": first["cornerdrive_l1_queue_budget_ratio"],
             "cornerdrive_l1_random_recheck_ratio": first["cornerdrive_l1_random_recheck_ratio"],
             "cornerdrive_l1_cos_weight": first["cornerdrive_l1_cos_weight"],
             "cornerdrive_l1_norm_weight": first["cornerdrive_l1_norm_weight"],
             "cornerdrive_l1_sign_weight": first["cornerdrive_l1_sign_weight"],
+            "cornerdrive_l1_theta_corner_harm_proxy": first.get("cornerdrive_l1_theta_corner_harm_proxy", ""),
+            "cornerdrive_l1_quarantine_risk_threshold": first.get("cornerdrive_l1_quarantine_risk_threshold", ""),
+            "cornerdrive_l1_low_weight_risk_threshold": first.get("cornerdrive_l1_low_weight_risk_threshold", ""),
+            "cornerdrive_l1_safe_weight": first.get("cornerdrive_l1_safe_weight", ""),
+            "cornerdrive_l1_low_weight": first.get("cornerdrive_l1_low_weight", ""),
         }
         for metric in METRIC_KEYS:
             values = [
@@ -337,11 +361,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--zenopp-score-temperature", type=float, default=0.05)
     parser.add_argument(
         "--policy-profile",
-        choices=["default", "real_data_adaptive"],
-        default="real_data_adaptive",
+        choices=["default", "real_data_adaptive", "real_data_adaptive_v41"],
+        default="real_data_adaptive_v41",
     )
     parser.add_argument("--theta-tol", type=float, default=None)
     parser.add_argument("--theta-rare", type=float, default=None)
+    parser.add_argument("--theta-rarity-main-tol", type=float, default=None)
     parser.add_argument("--cosine-filter-threshold", type=float, default=None)
     parser.add_argument("--recheck-probability", type=float, default=None)
     parser.add_argument("--cornerdrive-l1-mode", default=None)

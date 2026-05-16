@@ -108,3 +108,44 @@ def test_full_router_can_route_low_reputation_client_without_verdict() -> None:
     assert result.suspect_indices == [1]
     assert result.routing_reasons[1] == "risk_topB"
     assert "verdict" not in result.l1_score_details[1]
+
+
+def test_v4_dual_proxy_routes_corner_harm_before_default_accept() -> None:
+    gradients = [
+        np.array([1.0, 0.0]),
+        np.array([0.0, -1.0]),
+        np.array([0.0, 1.0]),
+        np.array([1.0, 0.1]),
+    ]
+    vehicle_ids = [f"0x{i:040x}" for i in range(4)]
+    config = make_l1_router_config(
+        "v4",
+        cos_deviation_threshold=3.0,
+        norm_mad_threshold=999.0,
+        sign_threshold=2.0,
+        queue_budget_ratio=0.25,
+        random_recheck_ratio=0.0,
+        theta_corner_harm_proxy=0.01,
+        safe_weight=0.8,
+        low_weight=0.2,
+    )
+
+    result = filter_suspects(
+        gradients,
+        vehicle_ids,
+        threshold=3.0,
+        recheck_probability=0.0,
+        router_config=config,
+        main_validation_gradient=np.array([1.0, 0.0]),
+        corner_validation_gradient=np.array([0.0, 1.0]),
+        learning_rate=1.0,
+        theta_tol=0.1,
+        theta_corner_harm=0.01,
+        rng=random.Random(7),
+    )
+
+    assert result.suspect_indices == [1]
+    assert result.route_actions[1] == "AUDIT"
+    assert result.routing_reasons[1] == "audit:corner_harm_proxy"
+    assert result.aggregation_weights[1] == 0.0
+    assert result.l1_score_details[1]["pred_delta_corner"] > 0.0

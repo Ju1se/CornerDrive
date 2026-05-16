@@ -18,7 +18,7 @@ for candidate in (PROJECT_ROOT, BACKEND_DIR):
 from common.schemas import DEFAULT_POLICY  # noqa: E402
 from policy_agent.analysis.real_gradient_benchmark import (  # noqa: E402
     RealGradientBenchmarkConfig,
-    make_real_data_adaptive_policy,
+    make_real_data_adaptive_v41_policy,
     run_real_gradient_benchmark,
     write_real_gradient_outputs,
 )
@@ -82,15 +82,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--zenopp-score-temperature", type=float, default=0.05)
     parser.add_argument(
         "--policy-profile",
-        choices=["default", "real_data_adaptive"],
-        default="real_data_adaptive",
+        choices=["default", "real_data_adaptive", "real_data_adaptive_v41"],
+        default="real_data_adaptive_v41",
         help=(
-            "CornerDrive policy profile. real_data_adaptive uses the tuned "
-            "thresholds from the current real-gradient MNIST/Fashion/FEMNIST traces."
+            "CornerDrive policy profile. real_data_adaptive and "
+            "real_data_adaptive_v41 both use the calibrated V4.1 real-gradient "
+            "profile; default preserves the original baseline policy."
         ),
     )
     parser.add_argument("--theta-tol", type=float, default=None)
     parser.add_argument("--theta-rare", type=float, default=None)
+    parser.add_argument("--theta-rarity-main-tol", type=float, default=None)
     parser.add_argument("--cosine-filter-threshold", type=float, default=None)
     parser.add_argument("--recheck-probability", type=float, default=None)
     parser.add_argument("--cornerdrive-l1-mode", default=None)
@@ -112,9 +114,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    if args.policy_profile == "real_data_adaptive":
+    if args.policy_profile in {"real_data_adaptive", "real_data_adaptive_v41"}:
         l1_defaults = {
-            "cornerdrive_l1_mode": "v3_m3_budgeted",
+            "cornerdrive_l1_mode": "v4_m4_dual_proxy_budgeted",
             "cornerdrive_l1_cos_weight": 0.35,
             "cornerdrive_l1_norm_weight": 0.20,
             "cornerdrive_l1_sign_weight": 0.15,
@@ -210,16 +212,16 @@ def main() -> None:
             else l1_defaults["cornerdrive_l1_random_recheck_ratio"]
         ),
     )
-    policy = (
-        make_real_data_adaptive_policy()
-        if args.policy_profile == "real_data_adaptive"
-        else DEFAULT_POLICY
-    )
+    if args.policy_profile in {"real_data_adaptive", "real_data_adaptive_v41"}:
+        policy = make_real_data_adaptive_v41_policy()
+    else:
+        policy = DEFAULT_POLICY
     policy_updates = {
         key: value
         for key, value in {
             "theta_tol": args.theta_tol,
             "theta_rare": args.theta_rare,
+            "theta_rarity_main_tol": args.theta_rarity_main_tol,
             "cosine_filter_threshold": args.cosine_filter_threshold,
             "recheck_probability": args.recheck_probability,
         }.items()

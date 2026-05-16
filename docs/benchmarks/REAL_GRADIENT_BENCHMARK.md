@@ -43,35 +43,54 @@ python scripts/export_real_gradient_benchmark.py \
   --output-dir results/real_gradient_benchmark
 ```
 
-The exporter defaults to `--policy-profile real_data_adaptive`. This profile
+The exporter defaults to `--policy-profile real_data_adaptive_v41`. This profile
 comes from the current MNIST, FashionMNIST, and LEAF/FEMNIST real-gradient
 calibration runs. It tightens L2 fraud tolerance, relaxes the rarity threshold
-enough to preserve mixed real clients, and routes CornerDrive through L1V3
-risk-budget screening:
+enough to preserve mixed real clients, and routes CornerDrive through V4.1
+dual-proxy L1 screening:
 
 Current calibrated values:
 
 - `theta_tol = 0.02`
 - `theta_rare = -0.005`
+- `theta_rarity_main_tol = 0.00925`
 - `cosine_filter_threshold = 0.50`
 - `recheck_probability = 0.25`
-- `cornerdrive_l1_mode = v3_m3_budgeted`
+- `cornerdrive_l1_mode = v4_m4_dual_proxy_budgeted`
 - `cornerdrive_l1_queue_budget_ratio = 0.80`
 - `cornerdrive_l1_random_recheck_ratio = 0.05`
 - `norm_mad_threshold = 1.5`
 - `sign_threshold = 0.40`
 - risk weights: cosine `0.35`, norm `0.20`, sign `0.15`
+- dual-proxy route actions: `SAFE_ACCEPT`, `AUDIT`, `QUARANTINE`, `LOW_WEIGHT`
 
 ```bash
 python scripts/export_real_gradient_benchmark.py \
   --source leaf_femnist \
   --leaf-data-dir data/real/femnist \
-  --policy-profile real_data_adaptive \
-  --cornerdrive-l1-mode v3_m3_budgeted
+  --policy-profile real_data_adaptive_v41
 ```
 
 Use `--policy-profile default --cornerdrive-l1-mode v25_cosine_fixed` to
 reproduce the original V2.5 cosine-only CornerDrive behavior.
+
+V4.1 changes clean RARITY from `delta_main <= theta_tol` to
+`delta_main <= theta_rarity_main_tol`. It also adds cheap first-order
+main/corner loss-drift proxies at L1:
+
+- `pred_delta_main ~= -eta * <grad_main_val, grad_client>`
+- `pred_delta_corner ~= -eta * <grad_corner_val, grad_client>`
+- weighted aggregation fields: `effective_fraud_mass_survival` and
+  `effective_rarity_mass_retention`
+- diagnostic fields: `l1_fraud_recall`,
+  `l2_fraud_reject_rate_given_routed`, `fraud_survival_unrouted`, and
+  `fraud_survival_l2_accepted`
+
+The calibrated `theta_rarity_main_tol = 0.00925` treats updates that improve
+corner loss while introducing positive main-task drift above the stricter band
+as conflict or noise rather than clean rarity.
+The value was selected by a 20-seed threshold sweep as the largest tested
+zero-fraud setting before the FashionMNIST boundary case reappeared.
 
 If LEAF data is not present, a real-sample fallback can derive gradients from
 torchvision MNIST or FashionMNIST:
@@ -118,13 +137,13 @@ Outputs:
 For thesis-grade evidence, use the reliability exporter instead of relying on
 one seed. The default real-data profile now matches the thesis reproducibility
 manifest: 120 clients, 48 samples per client, 20 clients per round, 10 rounds,
-and 3 seeds per dataset. It exports per-run metrics plus mean, standard
+and 10 seeds per dataset. It exports per-run metrics plus mean, standard
 deviation, and 95% confidence intervals:
 
 ```bash
 python scripts/export_real_gradient_reliability_benchmark.py \
   --sources mnist,fashionmnist,femnist \
-  --seeds 20260507,20260508,20260509 \
+  --seeds 20260507,20260508,20260509,20260510,20260511,20260512,20260513,20260514,20260515,20260516 \
   --max-clients 120 \
   --max-samples-per-client 48 \
   --clients-per-round 20 \
@@ -148,21 +167,33 @@ The current local expanded run uses leakage-safe split surfaces. MNIST and
 FashionMNIST use training samples for pseudo-client gradients and split the
 official test data into audit/reference and final evaluation subsets.
 LEAF/FEMNIST uses `train/` shards for client gradients and `test/` shards for
-audit/reference and final evaluation clients. This raises the evidence from 128
-client-round observations per dataset in the original single-seed run to 600
+audit/reference and final evaluation clients. The final held-out V4.1 run uses
+seeds `20260527` through `20260546`, which raises the evidence from 128
+client-round observations per dataset in the original single-seed run to 4,000
 observations per dataset:
 
 | Dataset | CornerDrive main acc | Corner acc | Fraud survival | Rarity retention | L1 review |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| MNIST | 0.7225 +/- 0.0290 | 0.8629 +/- 0.0417 | 0.3267 +/- 0.0471 | 0.8286 +/- 0.0076 | 0.8500 +/- 0.0000 |
-| FashionMNIST | 0.6027 +/- 0.0132 | 0.9052 +/- 0.0124 | 0.3533 +/- 0.1246 | 0.4664 +/- 0.0638 | 0.8500 +/- 0.0000 |
-| LEAF/FEMNIST | 0.0855 +/- 0.0100 | 0.3783 +/- 0.0128 | 0.0000 +/- 0.0000 | 0.3444 +/- 0.1812 | 0.8500 +/- 0.0000 |
+| MNIST | 0.7575 +/- 0.0086 | 0.8313 +/- 0.0207 | 0.0010 +/- 0.0020 | 0.8634 +/- 0.0422 | 0.8500 +/- 0.0000 |
+| FashionMNIST | 0.5986 +/- 0.0111 | 0.9127 +/- 0.0048 | 0.0030 +/- 0.0059 | 0.1879 +/- 0.0365 | 0.8500 +/- 0.0000 |
+| LEAF/FEMNIST | 0.0827 +/- 0.0082 | 0.3949 +/- 0.0431 | 0.0000 +/- 0.0000 | 0.0788 +/- 0.0367 | 0.8500 +/- 0.0000 |
 
-Across all three datasets, this completed expanded run covers 1,800
-client-round observations, including 450 fraud observations and 581 rarity
-observations. With the M3 risk-budget router, CornerDrive averages 0.2267 fraud
-survival, 0.5465 rarity retention, 0.7155 corner accuracy, and 0.8500 L1 review
-coverage under the held-out evaluation protocol.
+Across all three datasets, this completed held-out run covers 12,000
+client-round observations, including 3,000 fraud observations and 3,782 rarity
+observations. With the calibrated V4.1 router, CornerDrive averages 0.0013 fraud
+survival, 0.0011 effective fraud-mass survival, 0.3767 rarity retention, 0.7130
+corner accuracy, and 0.8500 L1 review coverage under the held-out evaluation
+protocol.
+
+The same held-out seeds produce this macro baseline comparison:
+
+| Method | Main acc | Corner acc | Fraud survival | Rarity retention | Selected clients |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Multi-Krum | 0.4637 | 0.6283 | 0.4660 | 0.7608 | 13.00 |
+| FLTrust | 0.4923 | 0.6301 | 0.0717 | 0.5388 | 10.26 |
+| Zeno | 0.5009 | 0.6713 | 0.1820 | 0.9430 | 15.00 |
+| Zeno++ | 0.5031 | 0.6608 | 0.0007 | 0.2318 | 4.73 |
+| CornerDrive V4.1 | 0.4796 | 0.7130 | 0.0013 | 0.3767 | 3.58 |
 
 ## Interpretation
 
@@ -177,17 +208,17 @@ For CornerDrive, the round records also include L1 diagnostics:
 `l1_router_mode`, `l1_suspect_total`, `l1_review_rate`, `l1_routing_reasons`,
 and fraud survival split by attack family. These fields are important for real
 data because stealthy sign-flip proxy gradients can sit inside the cosine-only
-clean region while still being caught by risk-budget L1V3 routing.
+clean region while still being caught by V4.1 dual-proxy routing and L2
+rarity-safety checks.
 
-Held-out calibration on MNIST, FashionMNIST, and LEAF/FEMNIST shows why the M3
-risk-budget profile was selected for real data:
+Held-out calibration on MNIST, FashionMNIST, and LEAF/FEMNIST shows why V4.1
+replaces the earlier V3/M3 risk-budget profile for real data:
 
 | CornerDrive profile | Main acc | Corner acc | Fraud survival | Rarity retention | L1 review |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Initial held-out profile | 0.4721 | 0.6611 | 0.3444 | 0.5763 | 0.7428 |
-| L1 aggressive thresholds | 0.4709 | 0.6940 | 0.2333 | 0.5388 | 0.8189 |
-| M3 risk budget 0.80 | 0.4702 | 0.7155 | 0.2267 | 0.5465 | 0.8500 |
-| M3 sign-heavy 0.80 | 0.4693 | 0.7086 | 0.2556 | 0.5415 | 0.8500 |
+| V3/M3 risk budget | 0.4702 | 0.7155 | 0.2267 | 0.5465 | 0.8500 |
+| V4 dual-proxy routing | 0.4734 | 0.7288 | 0.0640 | 0.3947 | 0.8500 |
+| V4.1 rarity-main tolerance 0.00925 | 0.4772 | 0.7293 | 0.0000 | 0.3665 | 0.8500 |
 
 Under the held-out protocol, this profile should be treated as a frozen
 calibration point rather than a newly tuned optimum. The updated reliability

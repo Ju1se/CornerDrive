@@ -317,7 +317,7 @@ def classify_shadow_audit(
         verdict = "FRAUD"
         include = False
         action = "reject_fraud"
-    elif delta_corner <= auditor.rarity_threshold and delta_main <= auditor.fraud_threshold:
+    elif delta_corner <= auditor.rarity_threshold and delta_main <= auditor.rarity_main_threshold:
         verdict = "RARITY"
         include = True
         action = "accept_rarity"
@@ -616,6 +616,7 @@ def run_flpg_with_artifacts(
                 "recheck_probability": eval_policy.recheck_probability,
                 "theta_tol": eval_policy.theta_tol,
                 "theta_rare": eval_policy.theta_rare,
+                "theta_rarity_main_tol": eval_policy.theta_rarity_main_tol,
                 "theta_corner_harm": corner_harm_threshold,
                 "phase_name": round_bundle.phase,
             })
@@ -670,6 +671,7 @@ def run_flpg_with_artifacts(
             "tau_screen": eval_policy.cosine_filter_threshold,
             "theta_tol": eval_policy.theta_tol,
             "theta_rare": eval_policy.theta_rare,
+            "theta_rarity_main_tol": eval_policy.theta_rarity_main_tol,
             "theta_corner_harm": corner_harm_threshold,
             "theta_corner_harm_source": THETA_CORNER_HARM_SOURCE,
             "corner_weight": eval_policy.corner_weight,
@@ -698,6 +700,7 @@ def run_flpg_with_artifacts(
             "tau_screen": eval_policy.cosine_filter_threshold,
             "theta_tol": eval_policy.theta_tol,
             "theta_rare": eval_policy.theta_rare,
+            "theta_rarity_main_tol": eval_policy.theta_rarity_main_tol,
             "theta_corner_harm": corner_harm_threshold,
             "theta_corner_harm_source": THETA_CORNER_HARM_SOURCE,
             "corner_weight": eval_policy.corner_weight,
@@ -851,6 +854,7 @@ def build_run_config(
         "tau_screen_init": initial_policy.cosine_filter_threshold,
         "theta_tol_init": initial_policy.theta_tol,
         "theta_rare_init": initial_policy.theta_rare,
+        "theta_rarity_main_tol_init": initial_policy.theta_rarity_main_tol,
         "theta_corner_harm_init": THETA_CORNER_HARM_PROXY,
         "theta_corner_harm_source": THETA_CORNER_HARM_SOURCE,
         "recheck_probability_init": initial_policy.recheck_probability,
@@ -1037,6 +1041,7 @@ def main() -> int:
             "tau_screen",
             "theta_tol",
             "theta_rare",
+            "theta_rarity_main_tol",
             "theta_corner_harm",
             "recheck_probability",
             "corner_weight",
@@ -1108,6 +1113,7 @@ def main() -> int:
             "accepted_as_rarity",
             "theta_tol_used",
             "theta_rare_used",
+            "theta_rarity_main_tol_used",
         ],
         rarity_rows,
     )
@@ -1118,6 +1124,7 @@ def main() -> int:
             "tau_screen",
             "theta_tol",
             "theta_rare",
+            "theta_rarity_main_tol",
             "theta_corner_harm",
             "corner_weight",
             "reward_multiplier",

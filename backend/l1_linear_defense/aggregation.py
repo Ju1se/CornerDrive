@@ -33,6 +33,10 @@ class AggregationResult:
     routing_reasons: Dict[int, str] = field(default_factory=dict)
     l1_score_details: Dict[int, Dict[str, Any]] = field(default_factory=dict)
     router_mode: str = "v25_cosine_fixed"
+    quarantine_indices: List[int] = field(default_factory=list)
+    low_weight_indices: List[int] = field(default_factory=list)
+    route_actions: Dict[int, str] = field(default_factory=dict)
+    aggregation_weights: Dict[int, float] = field(default_factory=dict)
 
 
 def geometric_median(
@@ -132,6 +136,11 @@ def filter_suspects(
     recheck_probability: float = 0.0,
     rng: Optional[random.Random] = None,
     router_config: Optional[L1RouterConfig] = None,
+    main_validation_gradient: Optional[np.ndarray] = None,
+    corner_validation_gradient: Optional[np.ndarray] = None,
+    learning_rate: float = 1.0,
+    theta_tol: Optional[float] = None,
+    theta_corner_harm: Optional[float] = None,
     client_states: Optional[Mapping[str, Mapping[str, Any]]] = None,
     current_round: int = 0,
 ) -> AggregationResult:
@@ -172,7 +181,12 @@ def filter_suspects(
     median, iterations = geometric_median(gradients)
     router_mode = router_config.mode if router_config is not None else "v25_cosine_fixed"
     if router_config is not None:
-        router_config = replace(router_config, cos_deviation_threshold=threshold)
+        replace_payload: Dict[str, Any] = {"cos_deviation_threshold": threshold}
+        if theta_tol is not None:
+            replace_payload["theta_main_proxy"] = float(theta_tol)
+        if theta_corner_harm is not None:
+            replace_payload["theta_corner_harm_proxy"] = float(theta_corner_harm)
+        router_config = replace(router_config, **replace_payload)
 
     # Step 2: Compute cosine deviation scores
     scores = {}
@@ -211,6 +225,9 @@ def filter_suspects(
             vehicle_ids,
             median,
             router_config,
+            main_validation_gradient=main_validation_gradient,
+            corner_validation_gradient=corner_validation_gradient,
+            learning_rate=learning_rate,
             client_states=client_states,
             current_round=current_round,
         )
@@ -223,6 +240,10 @@ def filter_suspects(
         clean_indices = routed.clean_indices
         suspect_indices = routed.suspect_indices
         routing_reasons = routed.routing_reasons
+        quarantine_indices = list(routed.quarantine_indices or [])
+        low_weight_indices = list(routed.low_weight_indices or [])
+        route_actions = dict(routed.route_actions or {})
+        aggregation_weights = dict(routed.aggregation_weights or {})
         scores = {
             score.index: score.cosine_deviation
             for score in l1_scores
@@ -239,11 +260,34 @@ def filter_suspects(
                 l1_score_details[idx]["risk_score"],
                 scores[idx],
             )
+    if router_config is None or router_config.mode == "v25_cosine_fixed":
+        quarantine_indices = []
+        low_weight_indices = []
+        route_actions = {
+            idx: "AUDIT" if idx in suspect_indices else "SAFE_ACCEPT"
+            for idx in range(len(gradients))
+        }
+        aggregation_weights = {
+            idx: 0.0 if idx in suspect_indices else 1.0
+            for idx in range(len(gradients))
+        }
 
     # Step 3: Compute clean aggregation (only from non-suspects)
     if clean_indices:
         clean_gradients = [gradients[i] for i in clean_indices]
-        aggregated, _ = geometric_median(clean_gradients)
+        if router_config is not None and router_config.uses_dual_proxy:
+            weights = np.array(
+                [aggregation_weights.get(i, 1.0) for i in clean_indices],
+                dtype=np.float64,
+            )
+            total_weight = float(np.sum(weights))
+            if total_weight > 1e-12:
+                stacked = np.stack(clean_gradients)
+                aggregated = np.sum(stacked * weights[:, np.newaxis], axis=0) / total_weight
+            else:
+                aggregated = np.zeros_like(gradients[0])
+        else:
+            aggregated, _ = geometric_median(clean_gradients)
     else:
         # If all are suspects, use median of all (fallback)
         logger.warning("All gradients flagged as suspects, using full median")
@@ -262,6 +306,10 @@ def filter_suspects(
         routing_reasons=routing_reasons,
         l1_score_details=l1_score_details,
         router_mode=router_mode,
+        quarantine_indices=quarantine_indices,
+        low_weight_indices=low_weight_indices,
+        route_actions=route_actions,
+        aggregation_weights=aggregation_weights,
         iterations=iterations,
     )
 

@@ -48,7 +48,7 @@ def dual_audit(gradient, main_loss, corner_loss, current_weights, learning_rate)
         classification = "FRAUD"
         action = "SLASH_STAKE"
         sbt_change = -50
-    elif delta_corner <= RARITY_THRESHOLD and delta_main <= FRAUD_THRESHOLD:
+    elif delta_corner <= RARITY_THRESHOLD and delta_main <= RARITY_MAIN_THRESHOLD:
         classification = "RARITY"
         action = "JACKPOT_REWARD"
         sbt_change = 10
@@ -76,15 +76,14 @@ def dual_audit(gradient, main_loss, corner_loss, current_weights, learning_rate)
 | Mathematical Trigger | Diagnosis | Action | SBT Points |
 |---------------------|-----------|--------|------------|
 | ΔL_main > θ_tol (Utility Violation) | ✗ FRAUD | SLASH STAKE | -50 |
-| ΔL_corner ≤ θ_rare and ΔL_main ≤ θ_tol (corner information gain within the main-task damage budget) | ✓ RARITY | JACKPOT | +10 |
+| ΔL_corner ≤ θ_rare and ΔL_main ≤ θ_rarity-main (corner information gain within the stricter clean-rarity safety band) | ✓ RARITY | JACKPOT | +10 |
 | ΔL_main < 0 (Helps Main) | ✓ HONEST | INCLUDE | +1 |
 | Otherwise (Negligible Impact) | ~ NOISE | DISCARD | 0 |
 
-Current boundary note: the implemented `HONEST` rule only checks `ΔL_main < 0`.
-For thesis writing, it is safer to note that this leaves a corner-case blind spot:
-an update can slightly help the main task while still harming `D_corner`.
-If you want the table to express the conservative design intent rather than the
-current code path, use `HONEST_safe := (ΔL_main < 0) AND (ΔL_corner ≤ θ_corner-harm)`.
+Current boundary note: V4.1 separates the strong fraud threshold `θ_tol` from
+the stricter clean-rarity main safety band `θ_rarity-main`. Updates that improve
+corner loss but introduce positive main-task drift above this stricter band are
+treated as conflict/noise rather than clean rarity.
 
 ## Configuration Parameters
 
@@ -92,6 +91,7 @@ current code path, use `HONEST_safe := (ΔL_main < 0) AND (ΔL_corner ≤ θ_cor
 class L2Config:
     FRAUD_THRESHOLD = 0.05        # θ_tol - tolerance for main task
     RARITY_THRESHOLD = -0.03      # θ_rare - threshold for rare discoveries
+    RARITY_MAIN_THRESHOLD = 0.005 # θ_rarity-main - strict main safety for RARITY
     LEARNING_RATE = 0.01          # η - learning rate
     AUDIT_QUEUE = "l2_audit_queue"  # Celery queue for direct L1 -> L2 dispatch
     CONCURRENT_AUDITS = 5         # Number of parallel audit workers

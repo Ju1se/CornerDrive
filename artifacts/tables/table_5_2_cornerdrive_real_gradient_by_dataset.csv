@@ -1,4 +1,4 @@
 dataset,main_accuracy_mean,main_accuracy_ci95,corner_accuracy_mean,corner_accuracy_ci95,fraud_survival_mean,fraud_survival_ci95,rarity_retention_mean,rarity_retention_ci95,l1_review_mean,l1_review_ci95
-fashionmnist,0.6027,0.0132,0.9052,0.0124,0.3533,0.1246,0.4664,0.0638,0.85,0.0
-femnist,0.0855,0.01,0.3783,0.0128,0.0,0.0,0.3444,0.1812,0.85,0.0
-mnist,0.7225,0.029,0.8629,0.0417,0.3267,0.0471,0.8286,0.0076,0.85,0.0
+fashionmnist,0.5941,0.0117,0.9138,0.0081,0.308,0.0465,0.4937,0.0418,0.85,0.0
+femnist,0.0918,0.0095,0.3755,0.0291,0.02,0.0202,0.2155,0.0848,0.85,0.0
+mnist,0.7326,0.0134,0.8544,0.0156,0.39,0.0619,0.8125,0.0725,0.85,0.0

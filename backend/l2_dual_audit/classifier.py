@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from common.config import (
     L2_FRAUD_THRESHOLD,
     L2_RARITY_THRESHOLD,
+    L2_RARITY_MAIN_THRESHOLD,
     L2_LEARNING_RATE,
 )
 from common.schemas import Policy
@@ -28,8 +29,7 @@ logger = logging.getLogger(__name__)
 class Classification(Enum):
     """L2 classification outcomes."""
     FRAUD = "FRAUD"      # ΔL_main > θ_tol → Malicious, slash stake
-    RARITY = "RARITY"    # ΔL_corner ≤ theta_rare and ΔL_main ≤ theta_tol → Beneficial rare update
-                         # theta_rare is negative; theta_tol bounds tolerated main-task drift.
+    RARITY = "RARITY"    # ΔL_corner ≤ theta_rare and ΔL_main ≤ theta_rarity_main_tol
     HONEST = "HONEST"    # ΔL_main < 0 → Helps main task
     NOISE = "NOISE"      # Otherwise → Negligible impact
 
@@ -71,6 +71,7 @@ class DualChannelAuditor:
         learning_rate: float = L2_LEARNING_RATE,
         fraud_threshold: float = L2_FRAUD_THRESHOLD,
         rarity_threshold: float = L2_RARITY_THRESHOLD,
+        rarity_main_threshold: float = L2_RARITY_MAIN_THRESHOLD,
         device: str = "cpu",
     ):
         self.model = model.to(device)
@@ -80,6 +81,7 @@ class DualChannelAuditor:
         self.lr = learning_rate
         self.fraud_threshold = fraud_threshold
         self.rarity_threshold = rarity_threshold
+        self.rarity_main_threshold = rarity_main_threshold
         self.device = device
         self.slash_multiplier = 1.0
         self.rarity_reward_multiplier = 1.0
@@ -98,6 +100,7 @@ class DualChannelAuditor:
         """Sync dynamic thresholds and reward weights from the current policy."""
         self.fraud_threshold = policy.theta_tol
         self.rarity_threshold = policy.theta_rare
+        self.rarity_main_threshold = policy.theta_rarity_main_tol
         self.slash_multiplier = policy.slash_multiplier
         self.rarity_reward_multiplier = policy.rarity_reward_multiplier
         self.corner_weight = policy.corner_weight
@@ -193,9 +196,9 @@ class DualChannelAuditor:
 
         Classification Logic:
             1. If ΔL_main > θ_tol → FRAUD (hurts main task)
-            2. Elif ΔL_corner ≤ theta_rare and ΔL_main ≤ θ_tol → RARITY
-               (helps corner cases significantly while staying within the
-               main-task damage budget)
+            2. Elif ΔL_corner ≤ theta_rare and ΔL_main ≤ theta_rarity_main_tol
+               → RARITY (helps corner cases significantly while satisfying a
+               stricter main-task safety band than the fraud threshold)
                theta_rare 是负值 (如 -0.03)，越负越严格
             3. Elif ΔL_main < 0 and ΔL_corner > theta_corner_harm → FRAUD
                (main-helpful but corner-harmful update)
@@ -220,7 +223,10 @@ class DualChannelAuditor:
             )
             rarity_cert = None
 
-        elif delta_corner <= self.rarity_threshold and delta_main <= self.fraud_threshold:
+        elif (
+            delta_corner <= self.rarity_threshold
+            and delta_main <= self.rarity_main_threshold
+        ):
             classification = Classification.RARITY
             include = True
             sbt_points = int(round(10 * self.rarity_reward_multiplier))
@@ -331,6 +337,7 @@ class DualChannelAuditor:
             "delta_loss_main": delta_main,
             "delta_loss_corner": delta_corner,
             "rarity_threshold": self.rarity_threshold,
+            "rarity_main_threshold": self.rarity_main_threshold,
             "corner_improvement": abs(delta_corner),
             "gradient_hash": hashlib.sha256(gradient.tobytes()).hexdigest(),
             "timestamp": datetime.now(timezone.utc).isoformat(),

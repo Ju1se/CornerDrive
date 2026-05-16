@@ -715,7 +715,10 @@ class DemoDataGenerator:
         policy: Policy,
     ) -> bool:
         """Independent semantic precheck before the stronger rarity acceptance rule."""
-        return metrics.delta_main <= policy.theta_tol and metrics.delta_corner <= policy.theta_rare
+        return (
+            metrics.delta_main <= policy.theta_rarity_main_tol
+            and metrics.delta_corner <= policy.theta_rare
+        )
 
     def _record_rarity_generation(
         self,
@@ -748,6 +751,7 @@ class DemoDataGenerator:
             "accepted_as_rarity": accepted_as_rarity,
             "theta_tol_used": policy.theta_tol,
             "theta_rare_used": policy.theta_rare,
+            "theta_rarity_main_tol_used": policy.theta_rarity_main_tol,
             "rarity_cutoff_used": policy.cosine_filter_threshold + max(SUSPECT_MARGIN * 0.35, 0.01),
             "deviation_used": metrics.deviation,
             "ground_truth_mode": self.ground_truth_mode,

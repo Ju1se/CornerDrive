@@ -36,6 +36,7 @@ L1_MAX_GRADIENT_ABS = float(os.getenv("L1_MAX_GRADIENT_ABS", "1000000"))
 # ============ L2: DUAL-PURPOSE AUDIT ============
 L2_FRAUD_THRESHOLD = float(os.getenv("L2_FRAUD_THRESHOLD", "0.05"))  # θ_tol
 L2_RARITY_THRESHOLD = float(os.getenv("L2_RARITY_THRESHOLD", "-0.03"))  # θ_rare
+L2_RARITY_MAIN_THRESHOLD = float(os.getenv("L2_RARITY_MAIN_THRESHOLD", "0.00925"))
 L2_LEARNING_RATE = float(os.getenv("L2_LEARNING_RATE", "0.01"))  # η
 L2_AUDIT_QUEUE = os.getenv("L2_AUDIT_QUEUE", "l2_audit_queue")
 

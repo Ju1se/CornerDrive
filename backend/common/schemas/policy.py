@@ -34,7 +34,17 @@ class Policy(BaseModel):
         default=-0.03,
         ge=-0.10,
         le=-0.005,
-        description="L2 beneficial-rarity threshold (ΔL_corner ≤ theta_rare and ΔL_main ≤ theta_tol → RARITY)"
+        description="L2 beneficial-rarity corner threshold (ΔL_corner ≤ theta_rare)"
+    )
+
+    theta_rarity_main_tol: float = Field(
+        default=0.00925,
+        ge=0.0,
+        le=0.02,
+        description=(
+            "Strict L2 main-task safety threshold for clean RARITY "
+            "(ΔL_corner ≤ theta_rare and ΔL_main ≤ theta_rarity_main_tol → RARITY)"
+        )
     )
 
     # L3 drift threshold
@@ -116,6 +126,7 @@ class Policy(BaseModel):
             "round_id": self.round_id,
             "theta_tol": self.theta_tol,
             "theta_rare": self.theta_rare,
+            "theta_rarity_main_tol": self.theta_rarity_main_tol,
             "theta_drift": self.theta_drift,
             "cosine_filter_threshold": self.cosine_filter_threshold,
             "recheck_probability": self.recheck_probability,
@@ -139,6 +150,7 @@ class Policy(BaseModel):
                 "round_id": 100,
                 "theta_tol": 0.05,
                 "theta_rare": -0.03,
+                "theta_rarity_main_tol": 0.00925,
                 "theta_drift": 0.05,
                 "cosine_filter_threshold": 0.70,
                 "recheck_probability": 0.0,
@@ -160,6 +172,7 @@ class PolicyBounds(BaseModel):
 
     theta_tol: tuple = (0.01, 0.10)
     theta_rare: tuple = (-0.10, -0.005)  # Negative values
+    theta_rarity_main_tol: tuple = (0.0, 0.02)
     theta_drift: tuple = (0.01, 0.10)
     cosine_filter_threshold: tuple = (0.60, 0.95)
     recheck_probability: tuple = (0.0, 0.50)
@@ -176,6 +189,7 @@ class PolicyMaxStep(BaseModel):
 
     theta_tol: float = 0.005
     theta_rare: float = 0.005
+    theta_rarity_main_tol: float = 0.005
     theta_drift: float = 0.005
     cosine_filter_threshold: float = 0.03
     recheck_probability: float = 0.10
@@ -190,6 +204,7 @@ DEFAULT_POLICY = Policy(
     round_id=0,
     theta_tol=0.05,
     theta_rare=-0.03,
+    theta_rarity_main_tol=0.00925,
     theta_drift=0.05,
     cosine_filter_threshold=0.70,
     recheck_probability=0.0,

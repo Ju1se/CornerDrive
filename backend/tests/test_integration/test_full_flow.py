@@ -204,8 +204,8 @@ class TestL2DualAudit:
             assert "timestamp" in result.fraud_proof
             assert result.fraud_proof["vehicle_id"] == "0x" + "fraud" * 8 + "0"
 
-    def test_rarity_allows_main_delta_within_tolerance(self, auditor, monkeypatch):
-        """Corner improvement earns rarity when main-task drift stays within theta_tol."""
+    def test_rarity_rejects_positive_main_delta_outside_strict_safety_band(self, auditor, monkeypatch):
+        """Corner help is treated as conflict when main drift exceeds the rarity safety band."""
         param_count = sum(p.numel() for p in auditor.model.parameters())
         gradient = np.zeros(param_count)
         deltas = iter([0.02, -0.08])
@@ -213,6 +213,20 @@ class TestL2DualAudit:
         monkeypatch.setattr(auditor, "compute_delta_loss", lambda *_args, **_kwargs: next(deltas))
 
         result = auditor.audit("0x" + "rare" * 10, gradient)
+
+        assert result.classification == Classification.NOISE
+        assert result.rarity_certificate is None
+        assert result.include_in_aggregation is False
+
+    def test_rarity_allows_main_delta_inside_strict_safety_band(self, auditor, monkeypatch):
+        """Clean rarity can tolerate only tiny positive main drift."""
+        param_count = sum(p.numel() for p in auditor.model.parameters())
+        gradient = np.zeros(param_count)
+        deltas = iter([auditor.rarity_main_threshold / 2.0, -0.08])
+
+        monkeypatch.setattr(auditor, "compute_delta_loss", lambda *_args, **_kwargs: next(deltas))
+
+        result = auditor.audit("0x" + "rares" * 8, gradient)
 
         assert result.classification == Classification.RARITY
         assert result.rarity_certificate is not None

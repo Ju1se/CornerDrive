@@ -13,9 +13,11 @@ export BATCH_SIZE="${BATCH_SIZE:-24}"
 export VEHICLE_POOL_SIZE="${VEHICLE_POOL_SIZE:-128}"
 
 ALG_SEEDS="${ALG_SEEDS:-20260318,20260319,20260320,20260321,20260322}"
-REAL_SEEDS="${REAL_SEEDS:-20260507,20260508,20260509}"
+REAL_SEEDS="${REAL_SEEDS:-20260507,20260508,20260509,20260510,20260511,20260512,20260513,20260514,20260515,20260516}"
 REAL_SOURCES="${REAL_SOURCES:-mnist,fashionmnist,femnist}"
 RECHECK_VALUES="${RECHECK_VALUES:-0.00,0.05,0.10,0.20,0.30}"
+LEARNING_CURVE_SEEDS="${LEARNING_CURVE_SEEDS:-20260507,20260508,20260509,20260510,20260511}"
+LEARNING_CURVE_ROUNDS="${LEARNING_CURVE_ROUNDS:-50}"
 
 run_alg_main() {
   echo "[CornerDrive] Reproducing ALG/V2.5 main and recheck tables"
@@ -67,6 +69,35 @@ run_real_gradient() {
     --output-dir results/real_gradient_reliability_medium
 }
 
+run_frontiers() {
+  echo "[CornerDrive] Reproducing audit cost frontier and calibration split tables"
+  "${PYTHON_BIN}" scripts/export_cost_performance_frontier.py \
+    --input results/audit_reproduction/v25_artifacts_b24/v25_recheck_sweep_table.csv \
+    --output-dir results/cost_performance_frontier
+  "${PYTHON_BIN}" scripts/export_real_gradient_calibration_split.py \
+    --input-root results/real_gradient_threshold_sweep \
+    --output-dir results/real_gradient_calibration_split
+}
+
+run_learning_curve() {
+  echo "[CornerDrive] Reproducing real-gradient FL learning curve"
+  "${PYTHON_BIN}" scripts/export_real_gradient_learning_curve.py \
+    --sources "${REAL_SOURCES}" \
+    --seeds "${LEARNING_CURVE_SEEDS}" \
+    --rounds "${LEARNING_CURVE_ROUNDS}" \
+    --download \
+    --max-clients 120 \
+    --min-samples-per-client 8 \
+    --max-samples-per-client 48 \
+    --clients-per-round 20 \
+    --pretrain-steps 50 \
+    --local-batch-size 16 \
+    --reference-split-fraction 0.50 \
+    --max-reference-samples 4096 \
+    --max-evaluation-samples 4096 \
+    --output-dir results/real_gradient_learning_curve
+}
+
 make_tables() {
   echo "[CornerDrive] Building paper-facing CSV tables"
   "${PYTHON_BIN}" scripts/make_paper_tables.py
@@ -74,12 +105,16 @@ make_tables() {
 
 usage() {
   cat <<'EOF'
-Usage: bash scripts/reproduce_all.sh [main|appendix|real-gradient|all|tables]
+Usage: bash scripts/reproduce_all.sh [main|appendix|real-gradient|frontiers|learning-curve|journal|all|tables]
 
 Modes:
   main          Reproduce ALG/V2.5 main result and recheck tables.
   appendix      Reproduce stress, divergence, and threshold appendix tables.
   real-gradient Reproduce MNIST/FashionMNIST/FEMNIST real-gradient tables.
+  frontiers     Reproduce cost frontier and dev/test calibration split tables.
+  learning-curve
+                Reproduce the 50-round real-gradient FL learning curve.
+  journal       Run real-gradient, frontiers, learning-curve, then build tables.
   all           Run real-gradient, main, appendix, then build CSV tables.
   tables        Build artifacts/tables/*.csv from existing results.
 
@@ -89,7 +124,9 @@ Environment overrides:
   VEHICLE_POOL_SIZE=128
   ALG_SEEDS=20260318,20260319,20260320,20260321,20260322
   REAL_SOURCES=mnist,fashionmnist,femnist
-  REAL_SEEDS=20260507,20260508,20260509
+  REAL_SEEDS=20260507,20260508,20260509,20260510,20260511,20260512,20260513,20260514,20260515,20260516
+  LEARNING_CURVE_SEEDS=20260507,20260508,20260509,20260510,20260511
+  LEARNING_CURVE_ROUNDS=50
 EOF
 }
 
@@ -107,6 +144,18 @@ case "${MODE}" in
     ;;
   real-gradient)
     run_real_gradient
+    make_tables
+    ;;
+  frontiers)
+    run_frontiers
+    ;;
+  learning-curve)
+    run_learning_curve
+    ;;
+  journal)
+    run_real_gradient
+    run_frontiers
+    run_learning_curve
     make_tables
     ;;
   all)
