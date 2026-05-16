@@ -10,6 +10,13 @@ seeds:
   - 20260507
   - 20260508
   - 20260509
+  - 20260510
+  - 20260511
+  - 20260512
+  - 20260513
+  - 20260514
+  - 20260515
+  - 20260516
 
 data:
   data_dir: data/real
@@ -31,9 +38,9 @@ split_protocol:
   femnist: "LEAF train shards build client gradients; LEAF test shards are deterministically divided into audit/reference and final evaluation client subsets."
   leakage_guard: "Final reported accuracy is computed on held-out evaluation data, not on the audit/reference surface used by FLTrust, Zeno, or CornerDrive L2."
 
-policy_profile: real_data_adaptive
+policy_profile: real_data_adaptive_v41
 l1_router:
-  mode: v3_m3_budgeted
+  mode: v4_m4_dual_proxy_budgeted
   cosine_filter_threshold: 0.50
   cos_weight: 0.35
   norm_weight: 0.20
@@ -43,10 +50,16 @@ l1_router:
   sign_topk_ratio: 0.10
   queue_budget_ratio: 0.80
   random_recheck_ratio: 0.05
+  theta_corner_harm_proxy: 0.005
+  quarantine_risk_threshold: 0.75
+  low_weight_risk_threshold: 0.45
+  safe_weight: 0.80
+  low_weight: 0.20
 
 l2_audit:
   theta_tol: 0.02
   theta_rare: -0.005
+  theta_rarity_main_tol: 0.00925
   recheck_probability: 0.25
 
 attacks:

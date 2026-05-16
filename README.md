@@ -186,8 +186,9 @@ Representative expected values:
 
 | Item | Expected |
 |---|---:|
-| Real-gradient CornerDrive macro fraud survival | 0.2393 |
-| Real-gradient CornerDrive macro rarity retention | 0.5072 |
+| Real-gradient V4.1 CornerDrive macro fraud survival | 0.0013 |
+| Real-gradient V4.1 CornerDrive macro rarity retention | 0.3767 |
+| Real-gradient V4.1 CornerDrive macro corner accuracy | 0.7130 |
 | ALG CornerDrive p=0.10 main accuracy | 85.58% ± 0.55 |
 | ALG CornerDrive p=0.10 corner accuracy | 61.24% ± 0.53 |
 | ALG CornerDrive p=0.10 sign-flip survival | 0.00% ± 0.00 |

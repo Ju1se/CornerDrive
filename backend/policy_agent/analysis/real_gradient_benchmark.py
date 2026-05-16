@@ -50,13 +50,12 @@ DEFAULT_CORNER_LABELS = (1, 7, 9)
 REAL_DATA_ADAPTIVE_POLICY_UPDATES: dict[str, float] = {
     "theta_tol": 0.02,
     "theta_rare": -0.005,
-    "theta_rarity_main_tol": 0.02,
+    "theta_rarity_main_tol": 0.00925,
     "cosine_filter_threshold": 0.50,
     "recheck_probability": 0.25,
 }
 REAL_DATA_ADAPTIVE_V41_POLICY_UPDATES: dict[str, float] = {
     **REAL_DATA_ADAPTIVE_POLICY_UPDATES,
-    "theta_rarity_main_tol": 0.00925,
 }
 
 
@@ -1367,17 +1366,15 @@ def _summarize_classification(
 
 
 def make_real_data_adaptive_policy(base_policy: Policy | None = None) -> Policy:
-    """Policy profile calibrated from the current MNIST/Fashion/FEMNIST traces."""
+    """Canonical V4.1 policy calibrated from MNIST/Fashion/FEMNIST traces."""
 
     return (base_policy or DEFAULT_POLICY).model_copy(update=REAL_DATA_ADAPTIVE_POLICY_UPDATES)
 
 
 def make_real_data_adaptive_v41_policy(base_policy: Policy | None = None) -> Policy:
-    """V4.1 profile with stricter main-task safety for clean RARITY verdicts."""
+    """Explicit alias for the calibrated V4.1 real-gradient policy profile."""
 
-    return (base_policy or DEFAULT_POLICY).model_copy(
-        update=REAL_DATA_ADAPTIVE_V41_POLICY_UPDATES
-    )
+    return make_real_data_adaptive_policy(base_policy)
 
 
 def _cornerdrive_l1_router_config(config: RealGradientBenchmarkConfig) -> L1RouterConfig | None:
