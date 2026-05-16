@@ -30,7 +30,7 @@ from export_thesis_artifacts import (  # noqa: E402
     write_csv,
     write_json,
 )
-from export_v25_artifacts import (  # noqa: E402
+from export_synthetic_alg_benchmark import (  # noqa: E402
     bool_value,
     family_stats_from_l2,
     parse_seed_values,
@@ -56,7 +56,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--l1-router-mode",
         type=str,
-        default="v25_cosine_fixed",
+        default="cosine_recheck",
         help="Router mode retained for telemetry; p_recheck=1.0 makes visibility exhaustive.",
     )
     parser.add_argument(

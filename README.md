@@ -7,7 +7,7 @@ method combines:
 - L1 routing: cheap gradient screening before expensive audit.
 - L2 dual-loss audit: classify suspect updates with main-task and corner-case
   loss drift.
-- Controlled ALG/V2.5 simulations plus real-data client-gradient benchmarks.
+- Controlled synthetic ALG simulations plus real-data client-gradient benchmarks.
 
 This repository is intended to let a reader clone the project, install the
 environment, run the documented commands, and regenerate the main thesis tables.
@@ -18,8 +18,8 @@ environment, run the documented commands, and regenerate the main thesis tables.
 |---|---|
 | Real-gradient method comparison, Table 5.1 | `artifacts/tables/table_5_1_real_gradient_macro.csv` |
 | CornerDrive real-gradient dataset breakdown, Table 5.2 | `artifacts/tables/table_5_2_cornerdrive_real_gradient_by_dataset.csv` |
-| ALG/V2.5 main result and recheck sweep | `results/audit_reproduction/v25_artifacts_b24/*.csv` |
-| L1 routing and L2 confusion appendix tables | `results/audit_reproduction/v25_artifacts_b24/*.csv` |
+| Synthetic ALG main result and recheck sweep | `results/audit_reproduction/synthetic_alg_benchmark_b24/*.csv` |
+| L1 routing and L2 confusion appendix tables | `results/audit_reproduction/synthetic_alg_benchmark_b24/*.csv` |
 | Rarity-overlap and proxy stress tests | `artifacts/tables/appendix_rarity_overlap.csv`, `artifacts/tables/appendix_proxy_sensitivity.csv` |
 | Corner-family divergence stress test | `artifacts/tables/appendix_corner_family_divergence.csv` |
 | Corner-harm threshold calibration | `artifacts/tables/appendix_corner_harm_threshold_calibration.csv` |
@@ -83,14 +83,14 @@ provides enough data.
 
 ### Quick thesis smoke check
 
-This regenerates the ALG/V2.5 main result, recheck sweep, and paper-facing CSV
+This regenerates the synthetic ALG main result, recheck sweep, and paper-facing CSV
 tables. It is the fastest thesis-critical check.
 
 ```bash
 bash scripts/reproduce_all.sh main
 ```
 
-Important: the thesis ALG/V2.5 setting is:
+Important: the thesis synthetic ALG setting is:
 
 ```bash
 BATCH_SIZE=24
@@ -98,17 +98,17 @@ VEHICLE_POOL_SIZE=128
 ```
 
 `scripts/reproduce_all.sh` sets those defaults explicitly. Running
-`scripts/export_v25_artifacts.py` without them uses the demo defaults
+`scripts/export_synthetic_alg_benchmark.py` without them uses the demo defaults
 (`BATCH_SIZE=96`, `VEHICLE_POOL_SIZE=384`) and will not reproduce the thesis
 numbers.
 
 Equivalent explicit command:
 
 ```bash
-BATCH_SIZE=24 VEHICLE_POOL_SIZE=128 python scripts/export_v25_artifacts.py \
+BATCH_SIZE=24 VEHICLE_POOL_SIZE=128 python scripts/export_synthetic_alg_benchmark.py \
   --seeds 20260318,20260319,20260320,20260321,20260322 \
   --recheck-values 0.00,0.05,0.10,0.20,0.30 \
-  --output-dir results/audit_reproduction/v25_artifacts_b24
+  --output-dir results/audit_reproduction/synthetic_alg_benchmark_b24
 ```
 
 ### Appendix stress tables
@@ -119,7 +119,7 @@ bash scripts/reproduce_all.sh appendix
 
 This runs:
 
-- `scripts/export_v25_stress_tests.py`
+- `scripts/export_synthetic_stress_tests.py`
 - `scripts/export_corner_family_divergence.py`
 - `scripts/export_corner_harm_threshold_calibration.py`
 
@@ -146,7 +146,7 @@ python scripts/export_real_gradient_reliability_benchmark.py \
   --reference-split-fraction 0.50 \
   --max-reference-samples 4096 \
   --max-evaluation-samples 4096 \
-  --output-dir results/real_gradient_reliability_v41_best_holdout_20260527_20260546
+  --output-dir results/real_gradient_reliability_calibrated_holdout
 ```
 
 If FEMNIST is not prepared yet, run only the torchvision sources first:
@@ -186,9 +186,9 @@ Representative expected values:
 
 | Item | Expected |
 |---|---:|
-| Real-gradient V4.1 CornerDrive macro fraud survival | 0.0013 |
-| Real-gradient V4.1 CornerDrive macro rarity retention | 0.3767 |
-| Real-gradient V4.1 CornerDrive macro corner accuracy | 0.7130 |
+| Real-gradient calibrated CornerDrive macro fraud survival | 0.0013 |
+| Real-gradient calibrated CornerDrive macro rarity retention | 0.3767 |
+| Real-gradient calibrated CornerDrive macro corner accuracy | 0.7130 |
 | ALG CornerDrive p=0.10 main accuracy | 85.58% ± 0.55 |
 | ALG CornerDrive p=0.10 corner accuracy | 61.24% ± 0.53 |
 | ALG CornerDrive p=0.10 sign-flip survival | 0.00% ± 0.00 |
@@ -247,7 +247,7 @@ The main exporters include FedAvg, GeoMed, Multi-Krum, FLTrust, Zeno, Zeno++,
 CornerDrive, main-only audit, corner-only audit, exhaustive L2, L1 ablations,
 and operating-curve scripts. See:
 
-- `scripts/export_v25_artifacts.py`
+- `scripts/export_synthetic_alg_benchmark.py`
 - `scripts/export_exhaustive_l2_audit.py`
 - `scripts/export_l1_l2_operating_curve.py`
 - `scripts/export_layer_cost_profile.py`

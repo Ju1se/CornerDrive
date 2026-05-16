@@ -48,9 +48,9 @@ split_protocol:
   femnist: "LEAF train shards build client gradients; LEAF test shards are deterministically divided into audit/reference and final evaluation client subsets."
   leakage_guard: "Final reported accuracy is computed on held-out evaluation data, not on the audit/reference surface used by FLTrust, Zeno, or CornerDrive L2."
 
-policy_profile: real_data_adaptive_v41
+policy_profile: real_gradient_calibrated
 l1_router:
-  mode: v4_m4_dual_proxy_budgeted
+  mode: dual_proxy_budgeted
   cosine_filter_threshold: 0.50
   cos_weight: 0.35
   norm_weight: 0.20
@@ -80,5 +80,5 @@ attacks:
   corner_harm_scale: 2.0
 
 outputs:
-  summary: results/real_gradient_reliability_v41_best_holdout_20260527_20260546/real_gradient_reliability_summary.csv
-  runs: results/real_gradient_reliability_v41_best_holdout_20260527_20260546/real_gradient_reliability_runs.csv
+  summary: results/real_gradient_reliability_calibrated_holdout/real_gradient_reliability_summary.csv
+  runs: results/real_gradient_reliability_calibrated_holdout/real_gradient_reliability_runs.csv

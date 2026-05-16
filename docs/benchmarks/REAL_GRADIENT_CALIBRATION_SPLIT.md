@@ -2,9 +2,9 @@
 
 This table makes threshold selection reviewer-auditable. The calibration sweep
 uses seeds `20260507` and `20260508` as the dev split, then reports the chosen
-settings on seed `20260509` as the test split. Legacy V3/M3 profiles are
+settings on seed `20260509` as the test split. Deprecated router profiles are
 intentionally excluded from this helper so the reproduction path stays aligned
-with the final V4.1 benchmark.
+with the final calibrated benchmark.
 
 ## Usage
 

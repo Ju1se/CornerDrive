@@ -1,4 +1,4 @@
-"""Cheap L1 visibility scores for CornerDrive V4.1.
+"""Cheap L1 visibility scores for the calibrated CornerDrive router.
 
 These scores are routing evidence only. They do not assign audit verdicts and
 must not be used for rejection or settlement without L2/L4.
@@ -120,7 +120,8 @@ def first_order_delta_scores(
 ) -> list[float]:
     """Estimate validation loss drift with a first-order Taylor proxy.
 
-    L2 measures ΔL = L(W - ηg_i; D) - L(W; D). V4.1 approximates this as
+    L2 measures ΔL = L(W - ηg_i; D) - L(W; D). The calibrated router
+    approximates this as
     -η <∇L(W; D), g_i>, which is cheap once the validation gradient is known.
     """
 

@@ -1,4 +1,4 @@
-# V2.5 Code Audit and Cleanup
+# synthetic ALG Code Audit and Cleanup
 
 Generated: 2026-04-28
 
@@ -14,28 +14,28 @@ This audit checked the synthetic benchmark and artifact-export paths for:
 
 ## Current Canonical Path
 
-Use `scripts/export_v25_artifacts.py` for Chapter 4 evidence. It exports:
+Use `scripts/export_synthetic_alg_benchmark.py` for Chapter 4 evidence. It exports:
 
-- `v25_main_result_table.csv`
-- `v25_archetype_generation_counts.csv`
-- `v25_l1_routing_by_archetype_reason.csv`
-- `v25_l2_confusion_matrix.csv`
-- `v25_rarity_discovery_metrics.csv`
-- `v25_fraud_survival_by_family.csv`
-- `v25_energy_attack_validation.csv`
-- `v25_dataset_isolation_config.json`
-- `v25_run_config.json`
+- `synthetic_alg_main_result_table.csv`
+- `synthetic_alg_archetype_generation_counts.csv`
+- `synthetic_alg_l1_routing_by_archetype_reason.csv`
+- `synthetic_alg_l2_confusion_matrix.csv`
+- `synthetic_alg_rarity_discovery_metrics.csv`
+- `synthetic_alg_fraud_survival_by_family.csv`
+- `synthetic_alg_energy_attack_validation.csv`
+- `synthetic_alg_dataset_isolation_config.json`
+- `synthetic_alg_run_config.json`
 
 Canonical command:
 
 ```bash
-BATCH_SIZE=24 VEHICLE_POOL_SIZE=128 python scripts/export_v25_artifacts.py \
+BATCH_SIZE=24 VEHICLE_POOL_SIZE=128 python scripts/export_synthetic_alg_benchmark.py \
   --rounds 24 \
   --cycle-rounds 12 \
   --pretrain-epochs 5 \
   --seeds 20260318,20260319,20260320,20260321,20260322 \
   --recheck-values 0.00,0.05,0.10,0.20,0.30 \
-  --output-dir results/v25_artifacts
+  --output-dir results/synthetic_alg_artifacts
 ```
 
 The `BATCH_SIZE` and `VEHICLE_POOL_SIZE` environment variables are part of the
@@ -54,9 +54,9 @@ The old `preflight` mode still exists behind `DEMO_GROUND_TRUTH_MODE=preflight` 
 
 ### Split Isolation
 
-Status: fixed in the V2.5 artifact path and dashboard baseline path.
+Status: fixed in the synthetic ALG artifact path and dashboard baseline path.
 
-The V2.5 path uses:
+The synthetic ALG path uses:
 
 - `D_proto_*` for generator directions
 - `D_audit_*` for L2 audit decisions
@@ -66,9 +66,9 @@ The backend Data Analysis baseline path was also moved onto the same proto/audit
 
 ### Oracle Feedback Leakage
 
-Status: fixed in the V2.5 artifact path.
+Status: fixed in the synthetic ALG artifact path.
 
-`scripts/export_v25_artifacts.py` now disables policy adaptation while producing Chapter 4 evidence. Oracle splits are report-only and do not feed threshold updates. This keeps `p=0.0` and `p=0.10` comparisons focused on audit visibility and L2 verdict behavior.
+`scripts/export_synthetic_alg_benchmark.py` now disables policy adaptation while producing Chapter 4 evidence. Oracle splits are report-only and do not feed threshold updates. This keeps `p=0.0` and `p=0.10` comparisons focused on audit visibility and L2 verdict behavior.
 
 ### Round Replay
 
@@ -98,11 +98,11 @@ These files are useful for development or historical comparison, but they are no
 - old folders under `results/thesis_artifacts*`
 - old `results/unified_benchmark_*` and `results/fedavg_baseline_*` JSON files
 
-If thesis tables are regenerated, prefer `results/v25_artifacts` and do not mix it with the old result folders.
+If thesis tables are regenerated, prefer `results/synthetic_alg_artifacts` and do not mix it with the old result folders.
 
 ## No Confirmed Falsification Found
 
-I did not find scripts that directly overwrite final metrics with fabricated constants or relabel benchmark ground truth from L2 verdicts in the current V2.5 path. The benchmark is still synthetic by design, so thesis wording should present it as a controlled server-side gradient-auditing benchmark rather than a real-client federated-learning benchmark.
+I did not find scripts that directly overwrite final metrics with fabricated constants or relabel benchmark ground truth from L2 verdicts in the current synthetic ALG path. The benchmark is still synthetic by design, so thesis wording should present it as a controlled server-side gradient-auditing benchmark rather than a real-client federated-learning benchmark.
 
 ## Remaining Development Placeholders
 

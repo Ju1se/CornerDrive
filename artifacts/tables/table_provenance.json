@@ -2,7 +2,7 @@
   "generated_at": "2026-05-16T12:58:22.769888+00:00",
   "script": "scripts/make_paper_tables.py",
   "real_gradient_config": {
-    "summary_json": "results/real_gradient_reliability_v41_best_holdout_20260527_20260546/real_gradient_reliability_summary.json",
+    "summary_json": "results/real_gradient_reliability_calibrated_holdout/real_gradient_reliability_summary.json",
     "sources": [
       "mnist",
       "fashionmnist",
@@ -47,7 +47,7 @@
     "attack_fraction": 0.2,
     "corner_harm_fraction": 0.05,
     "noise_fraction": 0.05,
-    "cornerdrive_l1_mode": "v4_m4_dual_proxy_budgeted",
+    "cornerdrive_l1_mode": "dual_proxy_budgeted",
     "cornerdrive_l1_cos_weight": 0.35,
     "cornerdrive_l1_norm_weight": 0.2,
     "cornerdrive_l1_sign_weight": 0.15,
@@ -59,22 +59,22 @@
   },
   "inputs": {
     "real_gradient_summary": {
-      "path": "results/real_gradient_reliability_v41_best_holdout_20260527_20260546/real_gradient_reliability_summary.csv",
+      "path": "results/real_gradient_reliability_calibrated_holdout/real_gradient_reliability_summary.csv",
       "sha256": "39740cff22d17b5081dc4c4cc8590f50dfd7881d9f4720fde4fe3354b41e71c1",
       "exists": true
     },
-    "v25_main_result_table": {
-      "path": "results/audit_reproduction/v25_artifacts_b24/v25_main_result_table.csv",
+    "synthetic_alg_main_result_table": {
+      "path": "results/audit_reproduction/synthetic_alg_benchmark_b24/synthetic_alg_main_result_table.csv",
       "sha256": "fb8571d709a96e18a915323a66b517e64be3bd1d235719b8ad42e5f174da14d9",
       "exists": true
     },
     "stress_rarity_overlap": {
-      "path": "results/audit_reproduction/v25_stress_tests_b24/stress_rarity_overlap_summary.csv",
+      "path": "results/audit_reproduction/synthetic_stress_tests_b24/stress_rarity_overlap_summary.csv",
       "sha256": "b41242629dbeb8aaab050657b282b231c1c11bacbfc843ac25115178c77d7846",
       "exists": true
     },
     "stress_proxy_sensitivity": {
-      "path": "results/audit_reproduction/v25_stress_tests_b24/stress_proxy_sensitivity_summary.csv",
+      "path": "results/audit_reproduction/synthetic_stress_tests_b24/stress_proxy_sensitivity_summary.csv",
       "sha256": "7d026a8edd8cfbf0806ba3e93ca35e861e626237005e4579862b32ab1b84fef4",
       "exists": true
     },

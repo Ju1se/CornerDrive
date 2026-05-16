@@ -136,7 +136,7 @@ IF ΔL_main < 0 THEN classify as HONEST
 ```
 
 **Boundary Note**:
-This is the current V4.1 implementation rule. Clean rarity uses the stricter
+This is the current calibrated implementation rule. Clean rarity uses the stricter
 main-task safety band `θ_rarity_main_tol`, while `θ_tol` remains the stronger
 fraud threshold. Main-helpful but corner-harmful updates are handled by the
 explicit corner-harm guard before being accepted as HONEST.

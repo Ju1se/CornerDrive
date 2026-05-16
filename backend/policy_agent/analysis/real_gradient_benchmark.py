@@ -47,18 +47,13 @@ from l2_dual_audit.classifier import DualChannelAuditor  # noqa: E402
 
 
 DEFAULT_CORNER_LABELS = (1, 7, 9)
-REAL_DATA_ADAPTIVE_POLICY_UPDATES: dict[str, float] = {
+REAL_GRADIENT_CALIBRATED_POLICY_UPDATES: dict[str, float] = {
     "theta_tol": 0.02,
     "theta_rare": -0.005,
     "theta_rarity_main_tol": 0.00925,
     "cosine_filter_threshold": 0.50,
     "recheck_probability": 0.25,
 }
-REAL_DATA_ADAPTIVE_V41_POLICY_UPDATES: dict[str, float] = {
-    **REAL_DATA_ADAPTIVE_POLICY_UPDATES,
-}
-
-
 @dataclass(frozen=True)
 class RealClient:
     client_id: str
@@ -130,7 +125,7 @@ class RealGradientBenchmarkConfig:
     corner_harm_scale: float = 2.0
     zeno_score_penalty: float = 1e-4
     zenopp_score_temperature: float = 0.05
-    cornerdrive_l1_mode: str = "v25_cosine_fixed"
+    cornerdrive_l1_mode: str = "cosine_recheck"
     cornerdrive_l1_cos_weight: float = 0.35
     cornerdrive_l1_norm_weight: float = 0.20
     cornerdrive_l1_sign_weight: float = 0.15
@@ -1365,20 +1360,16 @@ def _summarize_classification(
     }
 
 
-def make_real_data_adaptive_policy(base_policy: Policy | None = None) -> Policy:
-    """Canonical V4.1 policy calibrated from MNIST/Fashion/FEMNIST traces."""
+def make_real_gradient_calibrated_policy(base_policy: Policy | None = None) -> Policy:
+    """Canonical policy calibrated from MNIST/Fashion/FEMNIST traces."""
 
-    return (base_policy or DEFAULT_POLICY).model_copy(update=REAL_DATA_ADAPTIVE_POLICY_UPDATES)
-
-
-def make_real_data_adaptive_v41_policy(base_policy: Policy | None = None) -> Policy:
-    """Explicit alias for the calibrated V4.1 real-gradient policy profile."""
-
-    return make_real_data_adaptive_policy(base_policy)
+    return (base_policy or DEFAULT_POLICY).model_copy(
+        update=REAL_GRADIENT_CALIBRATED_POLICY_UPDATES
+    )
 
 
 def _cornerdrive_l1_router_config(config: RealGradientBenchmarkConfig) -> L1RouterConfig | None:
-    if config.cornerdrive_l1_mode == "v25_cosine_fixed":
+    if config.cornerdrive_l1_mode == "cosine_recheck":
         return None
     return make_l1_router_config(
         config.cornerdrive_l1_mode,

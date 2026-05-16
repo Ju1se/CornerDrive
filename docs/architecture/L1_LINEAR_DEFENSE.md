@@ -7,8 +7,8 @@ or under-observed updates, but it does not assign final Fraud/Rarity/Noise
 verdicts, reject clients, slash clients, or settle rewards. L2 owns the
 evidence-backed verdict; L4 turns verdicts into reputation and settlement.
 
-The default mode remains the V2.5 cosine router for legacy ALG baselines.
-Real-gradient reproduction uses the calibrated V4.1 dual-proxy router.
+The default mode remains the cosine-recheck router for synthetic ALG baselines.
+Real-gradient reproduction uses the calibrated dual-proxy router.
 
 ## Core Algorithms
 
@@ -42,7 +42,7 @@ def geometric_median(gradients, max_iter=100, eps=1e-6):
     return median
 ```
 
-### 2. V2.5 Cosine Deviation Scoring
+### 2. Cosine-Recheck Deviation Scoring
 
 Identifies gradients that deviate significantly from the computed median.
 
@@ -68,9 +68,9 @@ def cosine_deviation(gradient, median):
     return max(0, deviation)
 ```
 
-### 3. CornerDrive V4.1: Dual-Proxy Budgeted Visibility Router
+### 3. Calibrated Dual-Proxy Budgeted Visibility Router
 
-V4.1 computes a cheap per-update risk score:
+The calibrated router computes a cheap per-update risk score:
 
 ```text
 risk_i = w_cos  * R(d_cos_i)
@@ -98,19 +98,19 @@ Signals:
 Available modes:
 
 ```text
-v25_cosine_fixed           # legacy cosine + fixed recheck
-v4_m4_dual_proxy_budgeted  # final V4.1 real-gradient router
+cosine_recheck       # cosine screening + fixed recheck
+dual_proxy_budgeted  # calibrated real-gradient router
 ```
 
-For the V4.1 budgeted mode, L1 routes:
+For the calibrated budgeted mode, L1 routes:
 
 ```text
 harm-priority audits + rarity-proxy audits + uncertainty audits
     + stratified random recheck
 ```
 
-Non-audited updates are no longer automatically equivalent to safe. V4.1 uses
-route actions:
+Non-audited updates are no longer automatically equivalent to safe. The
+calibrated router uses route actions:
 
 ```text
 SAFE_ACCEPT | AUDIT | QUARANTINE | LOW_WEIGHT
@@ -125,7 +125,7 @@ class L1Config:
     BATCH_SIZE = 10              # Number of gradients per batch
     BATCH_TIMEOUT = 5.0          # Timeout in seconds
     SUSPECT_THRESHOLD = 0.3      # Legacy cosine-deviation threshold
-    L1_ROUTER_MODE = "v25_cosine_fixed"
+    L1_ROUTER_MODE = "cosine_recheck"
     L1_QUEUE_BUDGET_RATIO = 0.35
     L1_RANDOM_RECHECK_RATIO = 0.05
     GEOMETRIC_MEDIAN_MAX_ITER = 100
@@ -136,7 +136,7 @@ class L1Config:
 
 1. **Collect Batch**: Wait for `BATCH_SIZE` gradients or timeout
 2. **Compute Median**: Calculate geometric median of batch
-3. **Score Gradients**: Compute cosine deviation, norm/sign scores, and V4.1
+3. **Score Gradients**: Compute cosine deviation, norm/sign scores, and calibrated
    main/corner first-order drift proxies when validation gradients are present
 4. **Route**: Select updates for L2 under the configured visibility policy
 5. **Forward**: Send routed updates to L2 and aggregate the non-routed path
@@ -213,7 +213,7 @@ Health check endpoint.
 - **Throughput**: Gradients processed per second
 - **Suspect Rate**: Percentage of gradients flagged
 - **Routing Reason Mix**: Why updates entered L2
-- **Risk Score Distribution**: V4.1 risk telemetry by archetype
+- **Risk Score Distribution**: calibrated risk telemetry by archetype
 - **Route Action Mix**: SAFE_ACCEPT/AUDIT/QUARANTINE/LOW_WEIGHT proportions
 - **Median Convergence**: Iterations needed
 

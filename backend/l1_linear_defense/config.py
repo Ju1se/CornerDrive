@@ -12,26 +12,24 @@ from typing import Literal
 
 
 L1RouterMode = Literal[
-    "v25_cosine_fixed",
-    "v4_m4_dual_proxy_budgeted",
+    "cosine_recheck",
+    "dual_proxy_budgeted",
 ]
 
 
 MODE_ALIASES: dict[str, L1RouterMode] = {
-    "m0": "v25_cosine_fixed",
-    "baseline": "v25_cosine_fixed",
-    "v25": "v25_cosine_fixed",
-    "v25_cosine_fixed": "v25_cosine_fixed",
-    "v4": "v4_m4_dual_proxy_budgeted",
-    "v41": "v4_m4_dual_proxy_budgeted",
-    "dual_proxy": "v4_m4_dual_proxy_budgeted",
-    "v4_m4_dual_proxy_budgeted": "v4_m4_dual_proxy_budgeted",
+    "baseline": "cosine_recheck",
+    "cosine": "cosine_recheck",
+    "cosine_recheck": "cosine_recheck",
+    "calibrated": "dual_proxy_budgeted",
+    "dual_proxy": "dual_proxy_budgeted",
+    "dual_proxy_budgeted": "dual_proxy_budgeted",
 }
 
 
 @dataclass(frozen=True)
 class L1RouterConfig:
-    mode: L1RouterMode = "v25_cosine_fixed"
+    mode: L1RouterMode = "cosine_recheck"
 
     # Direction
     cos_weight: float = 0.35
@@ -70,23 +68,23 @@ class L1RouterConfig:
 
     @property
     def uses_budget(self) -> bool:
-        return self.mode == "v4_m4_dual_proxy_budgeted"
+        return self.mode == "dual_proxy_budgeted"
 
     @property
     def uses_norm(self) -> bool:
-        return self.mode == "v4_m4_dual_proxy_budgeted" and self.use_norm_mad
+        return self.mode == "dual_proxy_budgeted" and self.use_norm_mad
 
     @property
     def uses_sign(self) -> bool:
-        return self.mode == "v4_m4_dual_proxy_budgeted" and self.use_sign_score
+        return self.mode == "dual_proxy_budgeted" and self.use_sign_score
 
     @property
     def uses_dual_proxy(self) -> bool:
-        return self.mode == "v4_m4_dual_proxy_budgeted"
+        return self.mode == "dual_proxy_budgeted"
 
 
 def normalize_l1_mode(raw: str | None) -> L1RouterMode:
-    key = (raw or "v25_cosine_fixed").strip().lower()
+    key = (raw or "cosine_recheck").strip().lower()
     if key not in MODE_ALIASES:
         supported = ", ".join(sorted(MODE_ALIASES))
         raise ValueError(f"Unsupported L1 router mode {raw!r}. Supported: {supported}")
@@ -101,7 +99,7 @@ def make_l1_router_config(mode: str | None = None, **overrides) -> L1RouterConfi
 
 def l1_router_config_from_env() -> L1RouterConfig:
     return make_l1_router_config(
-        os.getenv("L1_ROUTER_MODE", "v25_cosine_fixed"),
+        os.getenv("L1_ROUTER_MODE", "cosine_recheck"),
         queue_budget_ratio=float(os.getenv("L1_QUEUE_BUDGET_RATIO", "0.35")),
         random_recheck_ratio=float(os.getenv("L1_RANDOM_RECHECK_RATIO", "0.05")),
     )

@@ -3,8 +3,8 @@
 
 The threshold sweep artifacts separate calibration seeds from a holdout seed.
 This exporter normalizes those layouts into reviewer-facing tables that make
-the tuning surface explicit. Legacy V3/M3 profiles are intentionally excluded
-from this reproduction helper.
+the tuning surface explicit. Deprecated router profiles are intentionally
+excluded from this reproduction helper.
 """
 
 from __future__ import annotations

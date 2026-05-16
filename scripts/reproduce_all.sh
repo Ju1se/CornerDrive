@@ -20,19 +20,19 @@ LEARNING_CURVE_SEEDS="${LEARNING_CURVE_SEEDS:-20260507,20260508,20260509,2026051
 LEARNING_CURVE_ROUNDS="${LEARNING_CURVE_ROUNDS:-50}"
 
 run_alg_main() {
-  echo "[CornerDrive] Reproducing ALG/V2.5 main and recheck tables"
-  "${PYTHON_BIN}" scripts/export_v25_artifacts.py \
+  echo "[CornerDrive] Reproducing synthetic ALG main and recheck tables"
+  "${PYTHON_BIN}" scripts/export_synthetic_alg_benchmark.py \
     --seeds "${ALG_SEEDS}" \
     --recheck-values "${RECHECK_VALUES}" \
-    --output-dir results/audit_reproduction/v25_artifacts_b24
+    --output-dir results/audit_reproduction/synthetic_alg_benchmark_b24
 }
 
 run_stress() {
   echo "[CornerDrive] Reproducing rarity/proxy/threshold stress tables"
-  "${PYTHON_BIN}" scripts/export_v25_stress_tests.py \
+  "${PYTHON_BIN}" scripts/export_synthetic_stress_tests.py \
     --seeds "${ALG_SEEDS}" \
     --threshold-seeds "${ALG_SEEDS}" \
-    --output-dir results/audit_reproduction/v25_stress_tests_b24
+    --output-dir results/audit_reproduction/synthetic_stress_tests_b24
 }
 
 run_divergence() {
@@ -66,13 +66,13 @@ run_real_gradient() {
     --reference-split-fraction 0.50 \
     --max-reference-samples 4096 \
     --max-evaluation-samples 4096 \
-    --output-dir results/real_gradient_reliability_v41_best_holdout_20260527_20260546
+    --output-dir results/real_gradient_reliability_calibrated_holdout
 }
 
 run_frontiers() {
   echo "[CornerDrive] Reproducing audit cost frontier and calibration split tables"
   "${PYTHON_BIN}" scripts/export_cost_performance_frontier.py \
-    --input results/audit_reproduction/v25_artifacts_b24/v25_recheck_sweep_table.csv \
+    --input results/audit_reproduction/synthetic_alg_benchmark_b24/synthetic_alg_recheck_sweep_table.csv \
     --output-dir results/cost_performance_frontier
   "${PYTHON_BIN}" scripts/export_real_gradient_calibration_split.py \
     --input-root results/real_gradient_threshold_sweep \
@@ -108,7 +108,7 @@ usage() {
 Usage: bash scripts/reproduce_all.sh [main|appendix|real-gradient|frontiers|learning-curve|journal|all|tables]
 
 Modes:
-  main          Reproduce ALG/V2.5 main result and recheck tables.
+  main          Reproduce synthetic ALG main result and recheck tables.
   appendix      Reproduce stress, divergence, and threshold appendix tables.
   real-gradient Reproduce MNIST/FashionMNIST/FEMNIST real-gradient tables.
   frontiers     Reproduce cost frontier and dev/test calibration split tables.

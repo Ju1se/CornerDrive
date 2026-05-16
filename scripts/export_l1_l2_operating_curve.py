@@ -30,7 +30,7 @@ from export_thesis_artifacts import (  # noqa: E402
     write_csv,
     write_json,
 )
-from export_v25_artifacts import (  # noqa: E402
+from export_synthetic_alg_benchmark import (  # noqa: E402
     bool_value,
     family_stats_from_l2,
     parse_seed_values,
@@ -65,7 +65,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--l1-modes",
         type=str,
-        default="v25_cosine_fixed,v4_m4_dual_proxy_budgeted",
+        default="cosine_recheck,dual_proxy_budgeted",
         help="Comma-separated L1 modes for the frontier sweep.",
     )
     parser.add_argument(
@@ -89,7 +89,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--threshold-l1-mode",
         type=str,
-        default="v4_m4_dual_proxy_budgeted",
+        default="dual_proxy_budgeted",
         help="L1 mode held fixed for L2 threshold-grid sweep.",
     )
     parser.add_argument("--threshold-p-recheck", type=float, default=0.10)
@@ -134,7 +134,7 @@ def parse_modes(raw: str) -> list[str]:
         stripped = part.strip()
         if stripped:
             modes.append(normalize_l1_mode(stripped))
-    return modes or [normalize_l1_mode("v4_m4_dual_proxy_budgeted")]
+    return modes or [normalize_l1_mode("dual_proxy_budgeted")]
 
 
 def policy_with_overrides(policy: Policy, **overrides: Any) -> Policy:

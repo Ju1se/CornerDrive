@@ -35,7 +35,7 @@ from export_thesis_artifacts import (  # noqa: E402
     write_csv,
     write_json,
 )
-from export_v25_artifacts import parse_seed_values  # noqa: E402
+from export_synthetic_alg_benchmark import parse_seed_values  # noqa: E402
 from l1_linear_defense.config import make_l1_router_config  # noqa: E402
 from policy_agent.analysis.unified_benchmark import _make_auditor, _make_generator  # noqa: E402
 
@@ -190,7 +190,7 @@ def run_worker(args: argparse.Namespace) -> int:
         policy_p,
     )
     l1_router_config = make_l1_router_config(
-        "v25_cosine_fixed",
+        "cosine_recheck",
         cos_deviation_threshold=reference_policy.cosine_filter_threshold,
     )
     micro_cost = measure_l2_unit_cost(

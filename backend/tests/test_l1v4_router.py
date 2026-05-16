@@ -12,7 +12,7 @@ def test_rank_normalize_collapses_uninformative_signal() -> None:
     assert rank_normalize([2.0, 2.0, 2.0]) == [0.0, 0.0, 0.0]
 
 
-def test_v25_mode_preserves_default_cosine_router() -> None:
+def test_cosine_recheck_mode_preserves_default_router() -> None:
     gradients = [np.array([1.0, 1.0, 1.0]) for _ in range(4)]
     gradients.append(np.array([-10.0, -10.0, -10.0]))
     vehicle_ids = [f"0x{i:040x}" for i in range(5)]
@@ -24,23 +24,23 @@ def test_v25_mode_preserves_default_cosine_router() -> None:
         recheck_probability=0.0,
         rng=random.Random(1),
     )
-    explicit_m0 = filter_suspects(
+    explicit_cosine = filter_suspects(
         gradients,
         vehicle_ids,
         threshold=0.3,
         recheck_probability=0.0,
         rng=random.Random(1),
-        router_config=make_l1_router_config("v25_cosine_fixed"),
+        router_config=make_l1_router_config("cosine_recheck"),
     )
 
-    assert explicit_m0.suspect_indices == baseline.suspect_indices
-    assert explicit_m0.clean_indices == baseline.clean_indices
-    assert explicit_m0.routing_reasons == baseline.routing_reasons
-    assert explicit_m0.l1_score_details == {}
+    assert explicit_cosine.suspect_indices == baseline.suspect_indices
+    assert explicit_cosine.clean_indices == baseline.clean_indices
+    assert explicit_cosine.routing_reasons == baseline.routing_reasons
+    assert explicit_cosine.l1_score_details == {}
 
 
-def test_legacy_v3_router_modes_are_not_supported() -> None:
-    for mode in ("m1", "m2", "m3", "m4", "l1v3", "v3_m3_budgeted"):
+def test_deprecated_router_modes_are_not_supported() -> None:
+    for mode in ("norm_fixed", "norm_sign_fixed", "budgeted_legacy"):
         with pytest.raises(ValueError):
             make_l1_router_config(mode)
 
@@ -54,7 +54,7 @@ def test_v4_dual_proxy_routes_corner_harm_before_default_accept() -> None:
     ]
     vehicle_ids = [f"0x{i:040x}" for i in range(4)]
     config = make_l1_router_config(
-        "v4",
+        "dual_proxy_budgeted",
         cos_deviation_threshold=3.0,
         norm_mad_threshold=999.0,
         sign_threshold=2.0,

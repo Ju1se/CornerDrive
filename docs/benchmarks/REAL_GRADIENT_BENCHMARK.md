@@ -1,6 +1,6 @@
 # Real-Data Gradient Benchmark
 
-The original V2.5 exporters intentionally stress controlled archetypes, but
+The original synthetic ALG exporters intentionally stress controlled archetypes, but
 they still generate gradients synthetically. For thesis evidence, the stronger
 next benchmark is to derive client gradients from public federated datasets and
 from IoV-relevant public driving datasets.
@@ -43,10 +43,10 @@ python scripts/export_real_gradient_benchmark.py \
   --output-dir results/real_gradient_benchmark
 ```
 
-The exporter defaults to `--policy-profile real_data_adaptive_v41`. This profile
+The exporter defaults to `--policy-profile real_gradient_calibrated`. This profile
 comes from the current MNIST, FashionMNIST, and LEAF/FEMNIST real-gradient
 calibration runs. It tightens L2 fraud tolerance, relaxes the rarity threshold
-enough to preserve mixed real clients, and routes CornerDrive through V4.1
+enough to preserve mixed real clients, and routes CornerDrive through calibrated
 dual-proxy L1 screening:
 
 Current calibrated values:
@@ -56,7 +56,7 @@ Current calibrated values:
 - `theta_rarity_main_tol = 0.00925`
 - `cosine_filter_threshold = 0.50`
 - `recheck_probability = 0.25`
-- `cornerdrive_l1_mode = v4_m4_dual_proxy_budgeted`
+- `cornerdrive_l1_mode = dual_proxy_budgeted`
 - `cornerdrive_l1_queue_budget_ratio = 0.80`
 - `cornerdrive_l1_random_recheck_ratio = 0.05`
 - `norm_mad_threshold = 1.5`
@@ -68,13 +68,13 @@ Current calibrated values:
 python scripts/export_real_gradient_benchmark.py \
   --source leaf_femnist \
   --leaf-data-dir data/real/femnist \
-  --policy-profile real_data_adaptive_v41
+  --policy-profile real_gradient_calibrated
 ```
 
-Use `--policy-profile default --cornerdrive-l1-mode v25_cosine_fixed` to
-reproduce the original V2.5 cosine-only CornerDrive behavior.
+Use `--policy-profile default --cornerdrive-l1-mode cosine_recheck` to
+reproduce the original synthetic ALG cosine-only CornerDrive behavior.
 
-V4.1 changes clean RARITY from `delta_main <= theta_tol` to
+The calibrated profile changes clean RARITY from `delta_main <= theta_tol` to
 `delta_main <= theta_rarity_main_tol`. It also adds cheap first-order
 main/corner loss-drift proxies at L1:
 
@@ -152,7 +152,7 @@ python scripts/export_real_gradient_reliability_benchmark.py \
   --reference-split-fraction 0.50 \
   --max-reference-samples 4096 \
   --max-evaluation-samples 4096 \
-  --output-dir results/real_gradient_reliability_v41_best_holdout_20260527_20260546
+  --output-dir results/real_gradient_reliability_calibrated_holdout
 ```
 
 Outputs:
@@ -167,7 +167,7 @@ The current local expanded run uses leakage-safe split surfaces. MNIST and
 FashionMNIST use training samples for pseudo-client gradients and split the
 official test data into audit/reference and final evaluation subsets.
 LEAF/FEMNIST uses `train/` shards for client gradients and `test/` shards for
-audit/reference and final evaluation clients. The final held-out V4.1 run uses
+audit/reference and final evaluation clients. The final held-out calibrated run uses
 seeds `20260527` through `20260546`, which raises the evidence from 128
 client-round observations per dataset in the original single-seed run to 4,000
 observations per dataset:
@@ -180,7 +180,7 @@ observations per dataset:
 
 Across all three datasets, this completed held-out run covers 12,000
 client-round observations, including 3,000 fraud observations and 3,782 rarity
-observations. With the calibrated V4.1 router, CornerDrive averages 0.0013 fraud
+observations. With the calibrated dual-proxy router, CornerDrive averages 0.0013 fraud
 survival, 0.0011 effective fraud-mass survival, 0.3767 rarity retention, 0.7130
 corner accuracy, and 0.8500 L1 review coverage under the held-out evaluation
 protocol.
@@ -193,7 +193,7 @@ The same held-out seeds produce this macro baseline comparison:
 | FLTrust | 0.4923 | 0.6301 | 0.0717 | 0.5388 | 10.26 |
 | Zeno | 0.5009 | 0.6713 | 0.1820 | 0.9430 | 15.00 |
 | Zeno++ | 0.5031 | 0.6608 | 0.0007 | 0.2318 | 4.73 |
-| CornerDrive V4.1 | 0.4796 | 0.7130 | 0.0013 | 0.3767 | 3.58 |
+| CornerDrive calibrated | 0.4796 | 0.7130 | 0.0013 | 0.3767 | 3.58 |
 
 ## Interpretation
 
@@ -208,15 +208,15 @@ For CornerDrive, the round records also include L1 diagnostics:
 `l1_router_mode`, `l1_suspect_total`, `l1_review_rate`, `l1_routing_reasons`,
 and fraud survival split by attack family. These fields are important for real
 data because stealthy sign-flip proxy gradients can sit inside the cosine-only
-clean region while still being caught by V4.1 dual-proxy routing and L2
+clean region while still being caught by calibrated dual-proxy routing and L2
 rarity-safety checks.
 
-Held-out calibration on MNIST, FashionMNIST, and LEAF/FEMNIST selects V4.1 as
-the frozen real-gradient profile:
+Held-out calibration on MNIST, FashionMNIST, and LEAF/FEMNIST selects the
+calibrated profile as the frozen real-gradient setting:
 
 | CornerDrive profile | Main acc | Corner acc | Fraud survival | Rarity retention | L1 review |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| V4.1 rarity-main tolerance 0.00925 | 0.4772 | 0.7293 | 0.0000 | 0.3665 | 0.8500 |
+| Calibrated rarity-main tolerance 0.00925 | 0.4772 | 0.7293 | 0.0000 | 0.3665 | 0.8500 |
 
 Under the held-out protocol, this profile should be treated as a frozen
 calibration point rather than a newly tuned optimum. The updated reliability

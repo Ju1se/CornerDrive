@@ -35,7 +35,7 @@ python scripts/export_l1_l2_operating_curve.py \
   --cycle-rounds 12 \
   --pretrain-epochs 5 \
   --seeds 20260318,20260319,20260320 \
-  --l1-modes v25_cosine_fixed,v4_m4_dual_proxy_budgeted \
+  --l1-modes cosine_recheck,dual_proxy_budgeted \
   --p-recheck-values 0.0,0.05,0.10 \
   --budget-values 0.20,0.35,0.50 \
   --theta-tol-values 0.025,0.05,0.075 \
@@ -50,12 +50,12 @@ python scripts/export_l1_l2_operating_curve.py --sweep frontier
 python scripts/export_l1_l2_operating_curve.py --sweep threshold
 ```
 
-To generate the paper-facing audit cost frontier from the existing V2.5
+To generate the paper-facing audit cost frontier from the existing synthetic ALG
 recheck sweep:
 
 ```bash
 python scripts/export_cost_performance_frontier.py \
-  --input results/audit_reproduction/v25_artifacts_b24/v25_recheck_sweep_table.csv \
+  --input results/audit_reproduction/synthetic_alg_benchmark_b24/synthetic_alg_recheck_sweep_table.csv \
   --output-dir results/cost_performance_frontier
 ```
 
@@ -87,9 +87,9 @@ Key columns:
 
 ## What This Improves
 
-The legacy fixed-point V3/M3 router ablation has been removed from the
-reproduction path. This script shows the current V4.1 budget frontier: how much
-L2 cost is needed to improve fraud catch and rarity retention.
+The old fixed-point router ablation has been removed from the reproduction
+path. This script shows the current calibrated budget frontier: how much L2
+cost is needed to improve fraud catch and rarity retention.
 
 The existing stress-test exporter includes threshold perturbations, but those
 stress cases are not a compact L1/L2 calibration table. This script adds a

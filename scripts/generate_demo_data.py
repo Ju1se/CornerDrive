@@ -108,7 +108,7 @@ GRADIENT_REFRESH_INTERVAL = int(os.getenv("GRADIENT_REFRESH_INTERVAL", "5"))
 GENERATION_TRACE_DIR = os.getenv("GENERATION_TRACE_DIR", "")
 
 # Optional corner-family decoupling for anti-circularity stress tests.
-# rho=1.0 keeps the original V2.5 single-corner-reference behaviour.
+# rho=1.0 keeps the original synthetic ALG single-corner-reference behaviour.
 DEFAULT_CORNER_FAMILY_DIVERGENCE = float(os.getenv("DEMO_CORNER_FAMILY_DIVERGENCE", "1.0"))
 CORNER_FAMILY_SPLIT_SIZE = int(os.getenv("DEMO_CORNER_FAMILY_SPLIT_SIZE", "50"))
 
