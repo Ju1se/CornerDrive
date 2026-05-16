@@ -195,7 +195,7 @@ def test_bdd100k_source_runs_real_gradient_smoke(tmp_path):
         assert result["methods"][method_id]["round_records"]
 
 
-def test_real_data_adaptive_profile_routes_cornerdrive_l1v3_m3(tmp_path):
+def test_real_data_adaptive_profile_routes_cornerdrive_v41(tmp_path):
     label_file, image_root = _make_bdd_fixture(tmp_path)
     config = RealGradientBenchmarkConfig(
         source="bdd100k",
@@ -214,7 +214,7 @@ def test_real_data_adaptive_profile_routes_cornerdrive_l1v3_m3(tmp_path):
         attack_fraction=0.0,
         corner_harm_fraction=0.0,
         noise_fraction=0.0,
-        cornerdrive_l1_mode="v3_m3_budgeted",
+        cornerdrive_l1_mode="v4_m4_dual_proxy_budgeted",
         cornerdrive_l1_norm_mad_threshold=1.5,
         cornerdrive_l1_sign_threshold=0.40,
         cornerdrive_l1_queue_budget_ratio=0.80,
@@ -225,5 +225,6 @@ def test_real_data_adaptive_profile_routes_cornerdrive_l1v3_m3(tmp_path):
     round_record = result["methods"]["cornerdrive"]["round_records"][0]
 
     assert result["policy"]["theta_tol"] == 0.02
-    assert round_record["l1_router_mode"] == "v3_m3_budgeted"
+    assert result["policy"]["theta_rarity_main_tol"] == 0.00925
+    assert round_record["l1_router_mode"] == "v4_m4_dual_proxy_budgeted"
     assert "l1_review_rate" in round_record

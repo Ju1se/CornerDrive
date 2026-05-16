@@ -137,13 +137,13 @@ Outputs:
 For thesis-grade evidence, use the reliability exporter instead of relying on
 one seed. The default real-data profile now matches the thesis reproducibility
 manifest: 120 clients, 48 samples per client, 20 clients per round, 10 rounds,
-and 10 seeds per dataset. It exports per-run metrics plus mean, standard
+and 20 held-out seeds per dataset. It exports per-run metrics plus mean, standard
 deviation, and 95% confidence intervals:
 
 ```bash
 python scripts/export_real_gradient_reliability_benchmark.py \
   --sources mnist,fashionmnist,femnist \
-  --seeds 20260507,20260508,20260509,20260510,20260511,20260512,20260513,20260514,20260515,20260516 \
+  --seeds 20260527,20260528,20260529,20260530,20260531,20260532,20260533,20260534,20260535,20260536,20260537,20260538,20260539,20260540,20260541,20260542,20260543,20260544,20260545,20260546 \
   --max-clients 120 \
   --max-samples-per-client 48 \
   --clients-per-round 20 \
@@ -152,7 +152,7 @@ python scripts/export_real_gradient_reliability_benchmark.py \
   --reference-split-fraction 0.50 \
   --max-reference-samples 4096 \
   --max-evaluation-samples 4096 \
-  --output-dir results/real_gradient_reliability_medium
+  --output-dir results/real_gradient_reliability_v41_best_holdout_20260527_20260546
 ```
 
 Outputs:
@@ -211,13 +211,11 @@ data because stealthy sign-flip proxy gradients can sit inside the cosine-only
 clean region while still being caught by V4.1 dual-proxy routing and L2
 rarity-safety checks.
 
-Held-out calibration on MNIST, FashionMNIST, and LEAF/FEMNIST shows why V4.1
-replaces the earlier V3/M3 risk-budget profile for real data:
+Held-out calibration on MNIST, FashionMNIST, and LEAF/FEMNIST selects V4.1 as
+the frozen real-gradient profile:
 
 | CornerDrive profile | Main acc | Corner acc | Fraud survival | Rarity retention | L1 review |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| V3/M3 risk budget | 0.4702 | 0.7155 | 0.2267 | 0.5465 | 0.8500 |
-| V4 dual-proxy routing | 0.4734 | 0.7288 | 0.0640 | 0.3947 | 0.8500 |
 | V4.1 rarity-main tolerance 0.00925 | 0.4772 | 0.7293 | 0.0000 | 0.3665 | 0.8500 |
 
 Under the held-out protocol, this profile should be treated as a frozen

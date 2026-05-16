@@ -164,9 +164,10 @@ def filter_suspects(
         rng: Optional deterministic RNG for reproducible benchmarks
         router_config: Optional L1 router mode/config. Defaults to the
             V2.5 cosine + fixed recheck behavior.
-        client_states: Optional cross-round state used by L1V3 reputation and
-            audit-age signals. Ignored by V2.5 mode.
-        current_round: Current round id for audit-age scoring.
+        client_states: Optional cross-round state retained for API
+            compatibility. The canonical V4.1 router does not use reputation
+            or audit-age features.
+        current_round: Current round id retained for API compatibility.
 
     Returns:
         AggregationResult with clean gradients and suspect list

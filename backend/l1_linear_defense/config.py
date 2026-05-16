@@ -13,10 +13,6 @@ from typing import Literal
 
 L1RouterMode = Literal[
     "v25_cosine_fixed",
-    "v3_m1_norm_fixed",
-    "v3_m2_norm_sign_fixed",
-    "v3_m3_budgeted",
-    "v3_m4_reputation_age",
     "v4_m4_dual_proxy_budgeted",
 ]
 
@@ -26,21 +22,8 @@ MODE_ALIASES: dict[str, L1RouterMode] = {
     "baseline": "v25_cosine_fixed",
     "v25": "v25_cosine_fixed",
     "v25_cosine_fixed": "v25_cosine_fixed",
-    "m1": "v3_m1_norm_fixed",
-    "norm": "v3_m1_norm_fixed",
-    "v3_m1_norm_fixed": "v3_m1_norm_fixed",
-    "m2": "v3_m2_norm_sign_fixed",
-    "norm_sign": "v3_m2_norm_sign_fixed",
-    "v3_m2_norm_sign_fixed": "v3_m2_norm_sign_fixed",
-    "m3": "v3_m3_budgeted",
-    "budgeted": "v3_m3_budgeted",
-    "v3_m3_budgeted": "v3_m3_budgeted",
-    "m4": "v3_m4_reputation_age",
-    "full": "v3_m4_reputation_age",
-    "l1v3": "v3_m4_reputation_age",
-    "v3_m4_reputation_age": "v3_m4_reputation_age",
-    "m5": "v4_m4_dual_proxy_budgeted",
     "v4": "v4_m4_dual_proxy_budgeted",
+    "v41": "v4_m4_dual_proxy_budgeted",
     "dual_proxy": "v4_m4_dual_proxy_budgeted",
     "v4_m4_dual_proxy_budgeted": "v4_m4_dual_proxy_budgeted",
 }
@@ -66,12 +49,6 @@ class L1RouterConfig:
     sign_topk_ratio: float = 0.10
     sign_threshold: float = 0.65
 
-    # Reputation / history
-    use_reputation: bool = True
-    reputation_weight: float = 0.20
-    audit_age_weight: float = 0.10
-    audit_age_cap: int = 10
-
     # Routing budget
     queue_budget_ratio: float = 0.35
     random_recheck_ratio: float = 0.05
@@ -93,34 +70,15 @@ class L1RouterConfig:
 
     @property
     def uses_budget(self) -> bool:
-        return self.mode in {
-            "v3_m3_budgeted",
-            "v3_m4_reputation_age",
-            "v4_m4_dual_proxy_budgeted",
-        }
+        return self.mode == "v4_m4_dual_proxy_budgeted"
 
     @property
     def uses_norm(self) -> bool:
-        return self.mode in {
-            "v3_m1_norm_fixed",
-            "v3_m2_norm_sign_fixed",
-            "v3_m3_budgeted",
-            "v3_m4_reputation_age",
-            "v4_m4_dual_proxy_budgeted",
-        } and self.use_norm_mad
+        return self.mode == "v4_m4_dual_proxy_budgeted" and self.use_norm_mad
 
     @property
     def uses_sign(self) -> bool:
-        return self.mode in {
-            "v3_m2_norm_sign_fixed",
-            "v3_m3_budgeted",
-            "v3_m4_reputation_age",
-            "v4_m4_dual_proxy_budgeted",
-        } and self.use_sign_score
-
-    @property
-    def uses_reputation_age(self) -> bool:
-        return self.mode == "v3_m4_reputation_age" and self.use_reputation
+        return self.mode == "v4_m4_dual_proxy_budgeted" and self.use_sign_score
 
     @property
     def uses_dual_proxy(self) -> bool:

@@ -98,7 +98,7 @@ def parse_args() -> argparse.Namespace:
         "--l1-router-mode",
         type=str,
         default="v25_cosine_fixed",
-        help="L1 router mode: v25_cosine_fixed, m1, m2, m3, or m4/l1v3.",
+        help="L1 router mode: v25_cosine_fixed or v4_m4_dual_proxy_budgeted.",
     )
     parser.add_argument(
         "--l1-queue-budget-ratio",

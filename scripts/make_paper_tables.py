@@ -23,7 +23,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--real-dir",
         type=Path,
-        default=PROJECT_ROOT / "results" / "real_gradient_reliability_medium",
+        default=PROJECT_ROOT / "results" / "real_gradient_reliability_v41_best_holdout_20260527_20260546",
     )
     parser.add_argument(
         "--v25-dir",

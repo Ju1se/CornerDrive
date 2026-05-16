@@ -1,4 +1,4 @@
-"""Cheap L1 visibility scores for CornerDrive-L1V3.
+"""Cheap L1 visibility scores for CornerDrive V4.1.
 
 These scores are routing evidence only. They do not assign audit verdicts and
 must not be used for rejection or settlement without L2/L4.
@@ -24,8 +24,6 @@ class L1Scores:
     log_norm: float
     norm_mad_score: Optional[float]
     sign_disagreement: Optional[float]
-    reputation_risk: Optional[float]
-    audit_age_score: Optional[float]
     pred_delta_main: Optional[float]
     pred_delta_corner: Optional[float]
     main_alignment: Optional[float]
@@ -42,10 +40,6 @@ class L1Scores:
 
 def _safe_float(value: float) -> float:
     return float(value) if np.isfinite(value) else 0.0
-
-
-def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
-    return max(low, min(high, float(value)))
 
 
 def rank_normalize(values: list[float]) -> list[float]:
@@ -126,7 +120,7 @@ def first_order_delta_scores(
 ) -> list[float]:
     """Estimate validation loss drift with a first-order Taylor proxy.
 
-    L2 measures ΔL = L(W - ηg_i; D) - L(W; D). L1V4 approximates this as
+    L2 measures ΔL = L(W - ηg_i; D) - L(W; D). V4.1 approximates this as
     -η <∇L(W; D), g_i>, which is cheap once the validation gradient is known.
     """
 
@@ -137,32 +131,6 @@ def first_order_delta_scores(
         _safe_float(-float(learning_rate) * float(np.dot(ref, np.ravel(gradient))))
         for gradient in gradients
     ]
-
-
-def reputation_risk_from_state(state: Mapping[str, Any] | None) -> float:
-    if state is None:
-        return 0.0
-    reputation = _clamp(float(state.get("reputation", 1.0)))
-    fraud_count = float(
-        state.get("recent_fraud_count", state.get("fraud_count", 0.0))
-    )
-    low_reputation_risk = 1.0 - reputation
-    recent_fraud_risk = _clamp(fraud_count / 3.0)
-    return _clamp(low_reputation_risk + recent_fraud_risk)
-
-
-def audit_age_from_state(
-    state: Mapping[str, Any] | None,
-    *,
-    current_round: int,
-    cap: int,
-) -> float:
-    if cap <= 0:
-        return 0.0
-    if state is None or state.get("last_audit_round") is None:
-        return 1.0
-    age = max(0, int(current_round) - int(state["last_audit_round"]))
-    return _clamp(age / cap)
 
 
 def compute_l1_scores(
@@ -192,20 +160,6 @@ def compute_l1_scores(
         config.sign_topk_ratio,
         config.eps,
     )
-    rep_scores = [
-        reputation_risk_from_state(
-            client_states.get(vehicle_id) if client_states is not None else None
-        )
-        for vehicle_id in vehicle_ids
-    ]
-    age_scores = [
-        audit_age_from_state(
-            client_states.get(vehicle_id) if client_states is not None else None,
-            current_round=current_round,
-            cap=config.audit_age_cap,
-        )
-        for vehicle_id in vehicle_ids
-    ]
     pred_delta_main = first_order_delta_scores(
         gradients,
         main_validation_gradient if config.uses_dual_proxy else None,
@@ -248,8 +202,6 @@ def compute_l1_scores(
     cos_rank = rank_normalize(cosine_deviations)
     norm_rank = rank_normalize(norm_scores) if config.uses_norm else [0.0] * len(gradients)
     sign_rank = rank_normalize(sign_scores) if config.uses_sign else [0.0] * len(gradients)
-    rep_rank = rank_normalize(rep_scores) if config.uses_reputation_age else [0.0] * len(gradients)
-    age_rank = rank_normalize(age_scores) if config.uses_reputation_age else [0.0] * len(gradients)
     main_harm_rank = (
         rank_normalize(main_harm_scores) if config.uses_dual_proxy else [0.0] * len(gradients)
     )
@@ -265,9 +217,6 @@ def compute_l1_scores(
         weights.append((config.norm_weight, norm_rank))
     if config.uses_sign:
         weights.append((config.sign_weight, sign_rank))
-    if config.uses_reputation_age:
-        weights.append((config.reputation_weight, rep_rank))
-        weights.append((config.audit_age_weight, age_rank))
     if config.uses_dual_proxy:
         weights.append((config.dual_main_weight, main_harm_rank))
         weights.append((config.dual_corner_harm_weight, corner_harm_rank))
@@ -286,8 +235,6 @@ def compute_l1_scores(
                 log_norm=log_norms[idx],
                 norm_mad_score=norm_scores[idx] if config.uses_norm else None,
                 sign_disagreement=sign_scores[idx] if config.uses_sign else None,
-                reputation_risk=rep_scores[idx] if config.uses_reputation_age else None,
-                audit_age_score=age_scores[idx] if config.uses_reputation_age else None,
                 pred_delta_main=pred_delta_main[idx] if config.uses_dual_proxy else None,
                 pred_delta_corner=pred_delta_corner[idx] if config.uses_dual_proxy else None,
                 main_alignment=main_alignments[idx] if config.uses_dual_proxy else None,

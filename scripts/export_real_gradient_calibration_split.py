@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Export dev/test calibration split tables for real-gradient threshold tuning.
 
-The threshold sweep artifacts already separate calibration seeds from a holdout
-seed for the earlier profiles, while the later M3 profiles store all seeds in a
-single run table. This exporter normalizes both layouts into reviewer-facing
-tables that make the tuning surface explicit.
+The threshold sweep artifacts separate calibration seeds from a holdout seed.
+This exporter normalizes those layouts into reviewer-facing tables that make
+the tuning surface explicit. Legacy V3/M3 profiles are intentionally excluded
+from this reproduction helper.
 """
 
 from __future__ import annotations
@@ -50,26 +50,6 @@ PROFILE_SPECS = [
         "label": "Balanced strict",
         "dev_dir": "calibration_balanced_strict",
         "test_dir": "holdout_balanced_strict",
-    },
-    {
-        "profile": "m3_budget60",
-        "label": "M3 risk budget 0.60",
-        "combined_dir": "m3_budget60",
-    },
-    {
-        "profile": "m3_budget70",
-        "label": "M3 risk budget 0.70",
-        "combined_dir": "m3_budget70",
-    },
-    {
-        "profile": "m3_budget80",
-        "label": "M3 risk budget 0.80",
-        "combined_dir": "m3_budget80",
-    },
-    {
-        "profile": "m3_signheavy80",
-        "label": "M3 sign-heavy 0.80",
-        "combined_dir": "m3_signheavy80",
     },
 ]
 

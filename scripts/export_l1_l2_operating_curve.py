@@ -65,7 +65,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--l1-modes",
         type=str,
-        default="m0,m4",
+        default="v25_cosine_fixed,v4_m4_dual_proxy_budgeted",
         help="Comma-separated L1 modes for the frontier sweep.",
     )
     parser.add_argument(
@@ -89,7 +89,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--threshold-l1-mode",
         type=str,
-        default="m4",
+        default="v4_m4_dual_proxy_budgeted",
         help="L1 mode held fixed for L2 threshold-grid sweep.",
     )
     parser.add_argument("--threshold-p-recheck", type=float, default=0.10)
@@ -134,7 +134,7 @@ def parse_modes(raw: str) -> list[str]:
         stripped = part.strip()
         if stripped:
             modes.append(normalize_l1_mode(stripped))
-    return modes or [normalize_l1_mode("m4")]
+    return modes or [normalize_l1_mode("v4_m4_dual_proxy_budgeted")]
 
 
 def policy_with_overrides(policy: Policy, **overrides: Any) -> Policy:

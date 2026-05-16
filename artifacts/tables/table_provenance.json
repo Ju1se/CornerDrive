@@ -1,24 +1,34 @@
 {
-  "generated_at": "2026-05-15T19:42:53.516390+00:00",
+  "generated_at": "2026-05-16T12:58:22.769888+00:00",
   "script": "scripts/make_paper_tables.py",
   "real_gradient_config": {
-    "summary_json": "results/real_gradient_reliability_medium/real_gradient_reliability_summary.json",
+    "summary_json": "results/real_gradient_reliability_v41_best_holdout_20260527_20260546/real_gradient_reliability_summary.json",
     "sources": [
       "mnist",
       "fashionmnist",
       "femnist"
     ],
     "seeds": [
-      20260507,
-      20260508,
-      20260509,
-      20260510,
-      20260511,
-      20260512,
-      20260513,
-      20260514,
-      20260515,
-      20260516
+      20260527,
+      20260528,
+      20260529,
+      20260530,
+      20260531,
+      20260532,
+      20260533,
+      20260534,
+      20260535,
+      20260536,
+      20260537,
+      20260538,
+      20260539,
+      20260540,
+      20260541,
+      20260542,
+      20260543,
+      20260544,
+      20260545,
+      20260546
     ],
     "methods": [
       "krum",
@@ -37,7 +47,7 @@
     "attack_fraction": 0.2,
     "corner_harm_fraction": 0.05,
     "noise_fraction": 0.05,
-    "cornerdrive_l1_mode": "v3_m3_budgeted",
+    "cornerdrive_l1_mode": "v4_m4_dual_proxy_budgeted",
     "cornerdrive_l1_cos_weight": 0.35,
     "cornerdrive_l1_norm_weight": 0.2,
     "cornerdrive_l1_sign_weight": 0.15,
@@ -49,8 +59,8 @@
   },
   "inputs": {
     "real_gradient_summary": {
-      "path": "results/real_gradient_reliability_medium/real_gradient_reliability_summary.csv",
-      "sha256": "81621b11a0ac820d857f5fa5555cfd843c978eb6965b2757a418ff4d62ffe9cc",
+      "path": "results/real_gradient_reliability_v41_best_holdout_20260527_20260546/real_gradient_reliability_summary.csv",
+      "sha256": "39740cff22d17b5081dc4c4cc8590f50dfd7881d9f4720fde4fe3354b41e71c1",
       "exists": true
     },
     "v25_main_result_table": {

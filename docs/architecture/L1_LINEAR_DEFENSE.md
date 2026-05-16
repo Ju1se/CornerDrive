@@ -7,9 +7,8 @@ or under-observed updates, but it does not assign final Fraud/Rarity/Noise
 verdicts, reject clients, slash clients, or settle rewards. L2 owns the
 evidence-backed verdict; L4 turns verdicts into reputation and settlement.
 
-The default mode remains the V2.5 cosine router for reproducible thesis
-baselines. CornerDrive-L1V3 adds a budgeted multi-signal router that can be
-enabled explicitly.
+The default mode remains the V2.5 cosine router for legacy ALG baselines.
+Real-gradient reproduction uses the calibrated V4.1 dual-proxy router.
 
 ## Core Algorithms
 
@@ -69,51 +68,52 @@ def cosine_deviation(gradient, median):
     return max(0, deviation)
 ```
 
-### 3. CornerDrive-L1V3: Budgeted Multi-Signal Visibility Router
+### 3. CornerDrive V4.1: Dual-Proxy Budgeted Visibility Router
 
-L1V3 computes a cheap per-update risk score:
+V4.1 computes a cheap per-update risk score:
 
 ```text
 risk_i = w_cos  * R(d_cos_i)
        + w_norm * R(z_norm_i)
        + w_sign * R(d_sign_i)
-       + w_rep  * R(rep_risk_i)
-       + w_age  * R(audit_age_i)
+       + w_main * R(main_harm_proxy_i)
+       + w_ch   * R(corner_harm_proxy_i)
+       + w_cb   * R(corner_benefit_proxy_i)
 ```
 
 Where `R(.)` is within-round percentile-rank normalization. This keeps cosine,
-norm, sign, reputation, and audit-age features on comparable scales.
+norm, sign, and first-order validation-drift features on comparable scales.
 
 Signals:
 
 - `d_cos_i`: `1 - cosine_similarity(g_i, g_med)`
 - `z_norm_i`: robust MAD score of log update norm
 - `d_sign_i`: sign disagreement on top-k reference coordinates
-- `rep_risk_i`: low-reputation or recent-fraud risk
-- `audit_age_i`: normalized rounds since last L2 audit
+- `pred_delta_main_i ~= -eta * <grad_main_val, g_i>`
+- `pred_delta_corner_i ~= -eta * <grad_corner_val, g_i>`
+- `main_harm_proxy_i`: positive main-task drift above tolerance
+- `corner_harm_proxy_i`: positive corner-task drift above tolerance
+- `corner_benefit_proxy_i`: predicted corner-task improvement
 
 Available modes:
 
 ```text
-v25_cosine_fixed       # M0: original cosine + fixed recheck
-v3_m1_norm_fixed      # M1: cosine + norm + fixed recheck
-v3_m2_norm_sign_fixed # M2: cosine + norm + sign + fixed recheck
-v3_m3_budgeted        # M3: top-B risk + stratified random recheck
-v3_m4_reputation_age  # M4: full L1V3 with reputation and audit age
+v25_cosine_fixed           # legacy cosine + fixed recheck
+v4_m4_dual_proxy_budgeted  # final V4.1 real-gradient router
 ```
 
-For budgeted modes, L1 routes:
+For the V4.1 budgeted mode, L1 routes:
 
 ```text
-threshold hits + top-B risk updates + stratified random recheck
+harm-priority audits + rarity-proxy audits + uncertainty audits
+    + stratified random recheck
 ```
 
-The output is only:
+Non-audited updates are no longer automatically equivalent to safe. V4.1 uses
+route actions:
 
 ```text
-route_to_l2 = true/false
-routing_reason = cosine_screening | norm_mad_screening | sign_screening
-               | risk_topB | stratified_random | probabilistic_recheck | bypass
+SAFE_ACCEPT | AUDIT | QUARANTINE | LOW_WEIGHT
 ```
 
 ## Batch Processing
@@ -136,7 +136,8 @@ class L1Config:
 
 1. **Collect Batch**: Wait for `BATCH_SIZE` gradients or timeout
 2. **Compute Median**: Calculate geometric median of batch
-3. **Score Gradients**: Compute cosine deviation, and optionally norm/sign/history scores
+3. **Score Gradients**: Compute cosine deviation, norm/sign scores, and V4.1
+   main/corner first-order drift proxies when validation gradients are present
 4. **Route**: Select updates for L2 under the configured visibility policy
 5. **Forward**: Send routed updates to L2 and aggregate the non-routed path
 
@@ -212,8 +213,8 @@ Health check endpoint.
 - **Throughput**: Gradients processed per second
 - **Suspect Rate**: Percentage of gradients flagged
 - **Routing Reason Mix**: Why updates entered L2
-- **Risk Score Distribution**: L1V3 risk telemetry by archetype
-- **Audit Age**: Time since each client last received L2 visibility
+- **Risk Score Distribution**: V4.1 risk telemetry by archetype
+- **Route Action Mix**: SAFE_ACCEPT/AUDIT/QUARANTINE/LOW_WEIGHT proportions
 - **Median Convergence**: Iterations needed
 
 ### Alerts

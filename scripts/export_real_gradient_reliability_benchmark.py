@@ -33,7 +33,7 @@ from policy_agent.analysis.real_gradient_benchmark import (  # noqa: E402
 
 
 DEFAULT_SOURCES = "mnist,fashionmnist,femnist"
-DEFAULT_SEEDS = "20260507,20260508,20260509,20260510,20260511,20260512,20260513,20260514,20260515,20260516"
+DEFAULT_SEEDS = "20260527,20260528,20260529,20260530,20260531,20260532,20260533,20260534,20260535,20260536,20260537,20260538,20260539,20260540,20260541,20260542,20260543,20260544,20260545,20260546"
 METHOD_ORDER = ("krum", "fltrust", "zeno", "zenopp", "cornerdrive")
 METRIC_KEYS = (
     "main_accuracy_avg",
@@ -386,7 +386,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=PROJECT_ROOT / "results" / "real_gradient_reliability_medium",
+        default=PROJECT_ROOT / "results" / "real_gradient_reliability_v41_best_holdout_20260527_20260546",
     )
     parser.add_argument("--verbose", action="store_true")
     return parser.parse_args()

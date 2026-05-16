@@ -134,7 +134,7 @@ Equivalent explicit command:
 ```bash
 python scripts/export_real_gradient_reliability_benchmark.py \
   --sources mnist,fashionmnist,femnist \
-  --seeds 20260507,20260508,20260509,20260510,20260511,20260512,20260513,20260514,20260515,20260516 \
+  --seeds 20260527,20260528,20260529,20260530,20260531,20260532,20260533,20260534,20260535,20260536,20260537,20260538,20260539,20260540,20260541,20260542,20260543,20260544,20260545,20260546 \
   --download \
   --max-clients 120 \
   --min-samples-per-client 8 \
@@ -146,7 +146,7 @@ python scripts/export_real_gradient_reliability_benchmark.py \
   --reference-split-fraction 0.50 \
   --max-reference-samples 4096 \
   --max-evaluation-samples 4096 \
-  --output-dir results/real_gradient_reliability_medium
+  --output-dir results/real_gradient_reliability_v41_best_holdout_20260527_20260546
 ```
 
 If FEMNIST is not prepared yet, run only the torchvision sources first:
@@ -236,7 +236,7 @@ Run the core tests used for the reproduction sanity check:
 ```bash
 python -m pytest \
   backend/tests/test_baseline_analysis.py \
-  backend/tests/test_l1v3_router.py \
+  backend/tests/test_l1v4_router.py \
   backend/tests/test_real_gradient_bdd100k.py \
   -q
 ```
@@ -249,7 +249,6 @@ and operating-curve scripts. See:
 
 - `scripts/export_v25_artifacts.py`
 - `scripts/export_exhaustive_l2_audit.py`
-- `scripts/export_l1v3_ablation.py`
 - `scripts/export_l1_l2_operating_curve.py`
 - `scripts/export_layer_cost_profile.py`
 
