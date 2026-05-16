@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-15T08:05:03.097037+00:00",
+  "generated_at": "2026-05-15T19:42:53.516390+00:00",
   "script": "scripts/make_paper_tables.py",
   "real_gradient_config": {
     "summary_json": "results/real_gradient_reliability_medium/real_gradient_reliability_summary.json",
@@ -11,7 +11,14 @@
     "seeds": [
       20260507,
       20260508,
-      20260509
+      20260509,
+      20260510,
+      20260511,
+      20260512,
+      20260513,
+      20260514,
+      20260515,
+      20260516
     ],
     "methods": [
       "krum",
@@ -43,7 +50,7 @@
   "inputs": {
     "real_gradient_summary": {
       "path": "results/real_gradient_reliability_medium/real_gradient_reliability_summary.csv",
-      "sha256": "1b909c13761d6b419ac8bc5170880adc405b997840c9c7cd49fa4593bd1c4823",
+      "sha256": "81621b11a0ac820d857f5fa5555cfd843c978eb6965b2757a418ff4d62ffe9cc",
       "exists": true
     },
     "v25_main_result_table": {

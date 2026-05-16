@@ -27,6 +27,8 @@ Use the root `README.md` for quick onboarding. Use the documents here for archit
 - [Implementation Guide](implementation/IMPLEMENTATION.md)
 - [L1/L2 Operating-Curve Benchmark](benchmarks/L1_L2_OPERATING_CURVE.md)
 - [Real-Data Gradient Benchmark](benchmarks/REAL_GRADIENT_BENCHMARK.md)
+- [Real-Gradient Calibration Split](benchmarks/REAL_GRADIENT_CALIBRATION_SPLIT.md)
+- [Real-Gradient FL Learning Curve](benchmarks/REAL_GRADIENT_FL_LEARNING_CURVE.md)
 - [Synthetic-Real Gradient Calibration](benchmarks/SYNTHETIC_REAL_GRADIENT_CALIBRATION.md)
 
 ## Math and Theory

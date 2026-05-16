@@ -50,8 +50,13 @@ DEFAULT_CORNER_LABELS = (1, 7, 9)
 REAL_DATA_ADAPTIVE_POLICY_UPDATES: dict[str, float] = {
     "theta_tol": 0.02,
     "theta_rare": -0.005,
+    "theta_rarity_main_tol": 0.02,
     "cosine_filter_threshold": 0.50,
     "recheck_probability": 0.25,
+}
+REAL_DATA_ADAPTIVE_V41_POLICY_UPDATES: dict[str, float] = {
+    **REAL_DATA_ADAPTIVE_POLICY_UPDATES,
+    "theta_rarity_main_tol": 0.00925,
 }
 
 
@@ -135,6 +140,14 @@ class RealGradientBenchmarkConfig:
     cornerdrive_l1_sign_topk_ratio: float = 0.10
     cornerdrive_l1_queue_budget_ratio: float = 0.35
     cornerdrive_l1_random_recheck_ratio: float = 0.05
+    cornerdrive_l1_dual_main_weight: float = 0.15
+    cornerdrive_l1_dual_corner_harm_weight: float = 0.25
+    cornerdrive_l1_dual_corner_benefit_weight: float = 0.10
+    cornerdrive_l1_theta_corner_harm_proxy: float = 0.005
+    cornerdrive_l1_quarantine_risk_threshold: float = 0.75
+    cornerdrive_l1_low_weight_risk_threshold: float = 0.45
+    cornerdrive_l1_safe_weight: float = 0.80
+    cornerdrive_l1_low_weight: float = 0.20
 
 
 class TinyImageMLP(nn.Module):
@@ -1069,6 +1082,22 @@ def _mean_gradient(gradients: list[np.ndarray]) -> np.ndarray:
     return np.mean(np.stack(gradients), axis=0)
 
 
+def _weighted_mean_gradient(
+    gradients: list[np.ndarray],
+    weights: list[float],
+) -> np.ndarray:
+    if len(gradients) != len(weights):
+        raise ValueError("Gradients and weights must have same length")
+    if not gradients:
+        raise ValueError("Cannot aggregate empty gradient list")
+    weight_array = np.array(weights, dtype=np.float64)
+    total_weight = float(np.sum(weight_array))
+    if total_weight <= 1e-12:
+        return np.zeros_like(gradients[0])
+    stacked = np.stack(gradients)
+    return np.sum(stacked * weight_array[:, np.newaxis], axis=0) / total_weight
+
+
 def _multi_krum_indices(gradients: list[np.ndarray], byzantine_budget: int = 2) -> list[int]:
     n = len(gradients)
     if n <= 2:
@@ -1343,6 +1372,14 @@ def make_real_data_adaptive_policy(base_policy: Policy | None = None) -> Policy:
     return (base_policy or DEFAULT_POLICY).model_copy(update=REAL_DATA_ADAPTIVE_POLICY_UPDATES)
 
 
+def make_real_data_adaptive_v41_policy(base_policy: Policy | None = None) -> Policy:
+    """V4.1 profile with stricter main-task safety for clean RARITY verdicts."""
+
+    return (base_policy or DEFAULT_POLICY).model_copy(
+        update=REAL_DATA_ADAPTIVE_V41_POLICY_UPDATES
+    )
+
+
 def _cornerdrive_l1_router_config(config: RealGradientBenchmarkConfig) -> L1RouterConfig | None:
     if config.cornerdrive_l1_mode == "v25_cosine_fixed":
         return None
@@ -1356,6 +1393,14 @@ def _cornerdrive_l1_router_config(config: RealGradientBenchmarkConfig) -> L1Rout
         sign_topk_ratio=config.cornerdrive_l1_sign_topk_ratio,
         queue_budget_ratio=config.cornerdrive_l1_queue_budget_ratio,
         random_recheck_ratio=config.cornerdrive_l1_random_recheck_ratio,
+        dual_main_weight=config.cornerdrive_l1_dual_main_weight,
+        dual_corner_harm_weight=config.cornerdrive_l1_dual_corner_harm_weight,
+        dual_corner_benefit_weight=config.cornerdrive_l1_dual_corner_benefit_weight,
+        theta_corner_harm_proxy=config.cornerdrive_l1_theta_corner_harm_proxy,
+        quarantine_risk_threshold=config.cornerdrive_l1_quarantine_risk_threshold,
+        low_weight_risk_threshold=config.cornerdrive_l1_low_weight_risk_threshold,
+        safe_weight=config.cornerdrive_l1_safe_weight,
+        low_weight=config.cornerdrive_l1_low_weight,
     )
 
 
@@ -1535,13 +1580,28 @@ def run_real_gradient_benchmark(
                     recheck_probability=policy.recheck_probability,
                     rng=random.Random(config.seed + round_index),
                     router_config=cornerdrive_router_config,
+                    main_validation_gradient=main_reference,
+                    corner_validation_gradient=corner_reference,
+                    learning_rate=L2_LEARNING_RATE,
+                    theta_tol=policy.theta_tol,
+                    theta_corner_harm=config.cornerdrive_l1_theta_corner_harm_proxy,
                     current_round=round_index,
                 )
                 suspect_indices = set(l1.suspect_indices)
+                quarantine_indices = set(l1.quarantine_indices)
+                low_weight_indices = set(l1.low_weight_indices)
                 l1_suspect_total = len(suspect_indices)
                 l1_router_mode = l1.router_mode
                 l1_routing_reasons = dict(Counter(l1.routing_reasons.values()))
-                selected_indices = set(range(len(raw_gradients))) - suspect_indices
+                route_actions = dict(l1.route_actions)
+                aggregation_weights = dict(l1.aggregation_weights)
+                audit_details: dict[int, dict[str, Any]] = {}
+                selected_weights = {
+                    idx: weight
+                    for idx, weight in aggregation_weights.items()
+                    if idx not in suspect_indices and weight > 0.0
+                }
+                selected_indices = set(selected_weights)
                 predicted = ["HONEST" for _ in raw_gradients]
                 runtime_auditor = DualChannelAuditor(
                     model=copy.deepcopy(model),
@@ -1549,16 +1609,33 @@ def run_real_gradient_benchmark(
                     corner_dataset=audit_corner_dataset,
                 )
                 runtime_auditor.apply_policy(policy)
+                if cornerdrive_router_config is not None and cornerdrive_router_config.uses_dual_proxy:
+                    runtime_auditor.corner_harm_threshold = (
+                        config.cornerdrive_l1_theta_corner_harm_proxy
+                    )
                 for idx in sorted(suspect_indices):
                     audit = runtime_auditor.audit(vehicle_ids[idx], raw_gradients[idx])
                     predicted[idx] = audit.classification.value
+                    audit_details[idx] = {
+                        "classification": audit.classification.value,
+                        "delta_main": audit.delta_loss_main,
+                        "delta_corner": audit.delta_loss_corner,
+                        "include_in_aggregation": audit.include_in_aggregation,
+                    }
                     if audit.include_in_aggregation:
-                        selected_indices.add(idx)
-                aggregated = (
-                    _mean_gradient([raw_gradients[idx] for idx in sorted(selected_indices)])
-                    if selected_indices
-                    else np.zeros_like(raw_gradients[0])
-                )
+                        selected_weights[idx] = 1.0
+                selected_indices = set(selected_weights)
+                if selected_indices:
+                    ordered_selected = sorted(selected_indices)
+                    if cornerdrive_router_config is not None and cornerdrive_router_config.uses_dual_proxy:
+                        aggregated = _weighted_mean_gradient(
+                            [raw_gradients[idx] for idx in ordered_selected],
+                            [selected_weights[idx] for idx in ordered_selected],
+                        )
+                    else:
+                        aggregated = _mean_gradient([raw_gradients[idx] for idx in ordered_selected])
+                else:
+                    aggregated = np.zeros_like(raw_gradients[0])
                 all_predictions["cornerdrive"].extend(predicted)
 
             method["model"] = _apply_gradient(model, aggregated, L2_LEARNING_RATE)
@@ -1567,6 +1644,13 @@ def run_real_gradient_benchmark(
             selected_truth = Counter(truth[idx] for idx in selected_indices)
             fraud_total = max(sum(1 for label in truth if label == "FRAUD"), 1)
             rarity_total = max(sum(1 for label in truth if label == "RARITY"), 1)
+            selected_weight_by_truth: Counter[str] = Counter()
+            if method_id == "cornerdrive":
+                for idx, weight in selected_weights.items():
+                    selected_weight_by_truth[truth[idx]] += float(weight)
+            else:
+                for idx in selected_indices:
+                    selected_weight_by_truth[truth[idx]] += 1.0
             round_record = {
                 "round": round_index,
                 "main_accuracy": after_main["accuracy"],
@@ -1578,10 +1662,61 @@ def run_real_gradient_benchmark(
                 "selected_rarity": int(selected_truth.get("RARITY", 0)),
                 "fraud_survival_rate": selected_truth.get("FRAUD", 0) / fraud_total,
                 "rarity_retention_rate": selected_truth.get("RARITY", 0) / rarity_total,
+                "effective_fraud_mass_survival": selected_weight_by_truth.get("FRAUD", 0.0) / fraud_total,
+                "effective_rarity_mass_retention": selected_weight_by_truth.get("RARITY", 0.0) / rarity_total,
                 "truth_counts": dict(Counter(truth)),
                 "predicted_counts": dict(Counter(predicted)),
             }
             if method_id == "cornerdrive":
+                routed_fraud = {
+                    idx for idx in suspect_indices
+                    if truth[idx] == "FRAUD"
+                }
+                routed_rarity = {
+                    idx for idx in suspect_indices
+                    if truth[idx] == "RARITY"
+                }
+                l2_rejected_fraud = {
+                    idx for idx in routed_fraud
+                    if idx not in selected_indices
+                }
+                l2_kept_rarity = {
+                    idx for idx in routed_rarity
+                    if idx in selected_indices
+                }
+                fraud_unrouted_selected = {
+                    idx for idx, label in enumerate(truth)
+                    if label == "FRAUD"
+                    and idx not in suspect_indices
+                    and idx in selected_indices
+                }
+                fraud_l2_accepted = {
+                    idx for idx in routed_fraud
+                    if idx in selected_indices
+                }
+                fraud_l2_accepted_as_rarity = {
+                    idx for idx in fraud_l2_accepted
+                    if predicted[idx] == "RARITY"
+                }
+                l2_conflict_indices = {
+                    idx for idx, detail in audit_details.items()
+                    if (
+                        float(detail["delta_corner"]) <= policy.theta_rare
+                        and float(detail["delta_main"]) > policy.theta_rarity_main_tol
+                    )
+                }
+                l2_conflict_rejected = {
+                    idx for idx in l2_conflict_indices
+                    if idx not in selected_indices
+                }
+                l2_accepted_audited = {
+                    idx for idx in audit_details
+                    if idx in selected_indices
+                }
+                l2_accepted_positive_main = {
+                    idx for idx in l2_accepted_audited
+                    if float(audit_details[idx]["delta_main"]) > 0.0
+                }
                 fraud_family_total = Counter(
                     item.attack_family
                     for item, label in zip(round_gradients, truth)
@@ -1597,6 +1732,43 @@ def run_real_gradient_benchmark(
                     "l1_suspect_total": l1_suspect_total,
                     "l1_review_rate": l1_suspect_total / len(raw_gradients),
                     "l1_routing_reasons": l1_routing_reasons,
+                    "l1_route_actions": dict(Counter(route_actions.values())),
+                    "l1_quarantine_total": len(quarantine_indices),
+                    "l1_low_weight_total": len(low_weight_indices),
+                    "l1_fraud_recall": len(routed_fraud) / fraud_total,
+                    "l1_rarity_route_rate": len(routed_rarity) / rarity_total,
+                    "l2_fraud_reject_rate_given_routed": (
+                        len(l2_rejected_fraud) / len(routed_fraud)
+                        if routed_fraud else 0.0
+                    ),
+                    "l2_rarity_keep_rate_given_routed": (
+                        len(l2_kept_rarity) / len(routed_rarity)
+                        if routed_rarity else 0.0
+                    ),
+                    "fraud_survival_unrouted": len(fraud_unrouted_selected) / fraud_total,
+                    "fraud_survival_l2_accepted": len(fraud_l2_accepted) / fraud_total,
+                    "l2_fraud_as_rarity_accept_rate": (
+                        len(fraud_l2_accepted_as_rarity) / fraud_total
+                    ),
+                    "l2_conflict_update_reject_rate": (
+                        len(l2_conflict_rejected) / len(l2_conflict_indices)
+                        if l2_conflict_indices else 0.0
+                    ),
+                    "l2_accepted_positive_main_drift_rate": (
+                        len(l2_accepted_positive_main) / len(l2_accepted_audited)
+                        if l2_accepted_audited else 0.0
+                    ),
+                    "fraud_quarantine_rate": (
+                        sum(1 for idx in quarantine_indices if truth[idx] == "FRAUD")
+                        / fraud_total
+                    ),
+                    "rarity_quarantine_rate": (
+                        sum(1 for idx in quarantine_indices if truth[idx] == "RARITY")
+                        / rarity_total
+                    ),
+                    "rarity_loss_l2_rejected": (
+                        len(routed_rarity - l2_kept_rarity) / rarity_total
+                    ),
                     "fraud_truth_attack_families": dict(fraud_family_total),
                     "selected_fraud_attack_families": dict(fraud_family_selected),
                 })
@@ -1610,6 +1782,12 @@ def run_real_gradient_benchmark(
             "corner_accuracy_avg": mean(row["corner_accuracy"] for row in rows),
             "fraud_survival_rate_avg": mean(row["fraud_survival_rate"] for row in rows),
             "rarity_retention_rate_avg": mean(row["rarity_retention_rate"] for row in rows),
+            "effective_fraud_mass_survival_avg": mean(
+                row["effective_fraud_mass_survival"] for row in rows
+            ),
+            "effective_rarity_mass_retention_avg": mean(
+                row["effective_rarity_mass_retention"] for row in rows
+            ),
             "selected_total_avg": mean(row["selected_total"] for row in rows),
         }
         if method_id == "cornerdrive":
@@ -1628,6 +1806,29 @@ def run_real_gradient_benchmark(
             )
             summary["l1_review_rate_avg"] = mean(
                 row.get("l1_review_rate", 0.0) for row in rows
+            )
+            for metric in (
+                "l1_fraud_recall",
+                "l1_rarity_route_rate",
+                "l2_fraud_reject_rate_given_routed",
+                "l2_rarity_keep_rate_given_routed",
+                "fraud_survival_unrouted",
+                "fraud_survival_l2_accepted",
+                "l2_fraud_as_rarity_accept_rate",
+                "l2_conflict_update_reject_rate",
+                "l2_accepted_positive_main_drift_rate",
+                "fraud_quarantine_rate",
+                "rarity_quarantine_rate",
+                "rarity_loss_l2_rejected",
+            ):
+                summary[f"{metric}_avg"] = mean(
+                    row.get(metric, 0.0) for row in rows
+                )
+            summary["l1_quarantine_total_avg"] = mean(
+                row.get("l1_quarantine_total", 0) for row in rows
+            )
+            summary["l1_low_weight_total_avg"] = mean(
+                row.get("l1_low_weight_total", 0) for row in rows
             )
             fraud_family_total: Counter[str] = Counter()
             fraud_family_selected: Counter[str] = Counter()

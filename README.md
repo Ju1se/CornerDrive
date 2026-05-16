@@ -23,6 +23,9 @@ environment, run the documented commands, and regenerate the main thesis tables.
 | Rarity-overlap and proxy stress tests | `artifacts/tables/appendix_rarity_overlap.csv`, `artifacts/tables/appendix_proxy_sensitivity.csv` |
 | Corner-family divergence stress test | `artifacts/tables/appendix_corner_family_divergence.csv` |
 | Corner-harm threshold calibration | `artifacts/tables/appendix_corner_harm_threshold_calibration.csv` |
+| Audit cost frontier | `results/cost_performance_frontier/audit_cost_frontier.svg` |
+| Real-gradient dev/test calibration split | `results/real_gradient_calibration_split/real_gradient_calibration_split_summary.csv` |
+| 50-round real-gradient FL learning curve | `results/real_gradient_learning_curve/real_gradient_learning_curve.svg` |
 
 The compact expected-value manifest is `results/expected_results.csv`.
 
@@ -131,7 +134,7 @@ Equivalent explicit command:
 ```bash
 python scripts/export_real_gradient_reliability_benchmark.py \
   --sources mnist,fashionmnist,femnist \
-  --seeds 20260507,20260508,20260509 \
+  --seeds 20260507,20260508,20260509,20260510,20260511,20260512,20260513,20260514,20260515,20260516 \
   --download \
   --max-clients 120 \
   --min-samples-per-client 8 \
@@ -152,6 +155,22 @@ If FEMNIST is not prepared yet, run only the torchvision sources first:
 REAL_SOURCES=mnist,fashionmnist bash scripts/reproduce_all.sh real-gradient
 ```
 
+### Journal extension artifacts
+
+These are slower or more appendix-oriented than the core thesis reproduction,
+so they are explicit modes rather than part of the default `all` run.
+
+```bash
+bash scripts/reproduce_all.sh frontiers
+bash scripts/reproduce_all.sh learning-curve
+```
+
+`frontiers` regenerates the audit cost frontier and the real-gradient dev/test
+calibration split. `learning-curve` regenerates the 50-round end-to-end
+real-gradient FL proxy with five seeds by default. Override
+`LEARNING_CURVE_ROUNDS` and `LEARNING_CURVE_SEEDS` for larger journal-scale
+sweeps.
+
 ### Full reproduction
 
 ```bash
@@ -167,8 +186,8 @@ Representative expected values:
 
 | Item | Expected |
 |---|---:|
-| Real-gradient CornerDrive macro fraud survival | 0.3444 |
-| Real-gradient CornerDrive macro rarity retention | 0.5763 |
+| Real-gradient CornerDrive macro fraud survival | 0.2393 |
+| Real-gradient CornerDrive macro rarity retention | 0.5072 |
 | ALG CornerDrive p=0.10 main accuracy | 85.58% ± 0.55 |
 | ALG CornerDrive p=0.10 corner accuracy | 61.24% ± 0.53 |
 | ALG CornerDrive p=0.10 sign-flip survival | 0.00% ± 0.00 |

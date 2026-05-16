@@ -17,6 +17,7 @@ L1RouterMode = Literal[
     "v3_m2_norm_sign_fixed",
     "v3_m3_budgeted",
     "v3_m4_reputation_age",
+    "v4_m4_dual_proxy_budgeted",
 ]
 
 
@@ -38,6 +39,10 @@ MODE_ALIASES: dict[str, L1RouterMode] = {
     "full": "v3_m4_reputation_age",
     "l1v3": "v3_m4_reputation_age",
     "v3_m4_reputation_age": "v3_m4_reputation_age",
+    "m5": "v4_m4_dual_proxy_budgeted",
+    "v4": "v4_m4_dual_proxy_budgeted",
+    "dual_proxy": "v4_m4_dual_proxy_budgeted",
+    "v4_m4_dual_proxy_budgeted": "v4_m4_dual_proxy_budgeted",
 }
 
 
@@ -73,9 +78,26 @@ class L1RouterConfig:
     min_recheck_prob: float = 0.02
     max_recheck_prob: float = 0.30
 
+    # L1V4 dual validation-gradient proxy
+    dual_main_weight: float = 0.15
+    dual_corner_harm_weight: float = 0.25
+    dual_corner_benefit_weight: float = 0.10
+    theta_main_proxy: float = 0.02
+    theta_corner_harm_proxy: float = 0.005
+
+    # L1V4 non-audit routing actions
+    quarantine_risk_threshold: float = 0.75
+    low_weight_risk_threshold: float = 0.45
+    safe_weight: float = 0.80
+    low_weight: float = 0.20
+
     @property
     def uses_budget(self) -> bool:
-        return self.mode in {"v3_m3_budgeted", "v3_m4_reputation_age"}
+        return self.mode in {
+            "v3_m3_budgeted",
+            "v3_m4_reputation_age",
+            "v4_m4_dual_proxy_budgeted",
+        }
 
     @property
     def uses_norm(self) -> bool:
@@ -84,6 +106,7 @@ class L1RouterConfig:
             "v3_m2_norm_sign_fixed",
             "v3_m3_budgeted",
             "v3_m4_reputation_age",
+            "v4_m4_dual_proxy_budgeted",
         } and self.use_norm_mad
 
     @property
@@ -92,11 +115,16 @@ class L1RouterConfig:
             "v3_m2_norm_sign_fixed",
             "v3_m3_budgeted",
             "v3_m4_reputation_age",
+            "v4_m4_dual_proxy_budgeted",
         } and self.use_sign_score
 
     @property
     def uses_reputation_age(self) -> bool:
         return self.mode == "v3_m4_reputation_age" and self.use_reputation
+
+    @property
+    def uses_dual_proxy(self) -> bool:
+        return self.mode == "v4_m4_dual_proxy_budgeted"
 
 
 def normalize_l1_mode(raw: str | None) -> L1RouterMode:

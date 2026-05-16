@@ -226,7 +226,7 @@ def search_overlap_rarity(
         for scale in scales:
             vector = generator._make_candidate(base, scale)
             metrics = candidate_metrics(generator, vector, honest_reference)
-            main_safe = metrics.delta_main <= policy.theta_tol
+            main_safe = metrics.delta_main <= policy.theta_rarity_main_tol
             corner_help = metrics.delta_corner <= policy.theta_rare
             if main_safe and corner_help:
                 score = (
@@ -237,7 +237,7 @@ def search_overlap_rarity(
             else:
                 score = (
                     -abs(metrics.delta_corner - policy.theta_rare)
-                    - max(0.0, metrics.delta_main - policy.theta_tol) * 5.0
+                    - max(0.0, metrics.delta_main - policy.theta_rarity_main_tol) * 5.0
                     - abs(metrics.deviation - 0.35) * 0.5
                 )
             if best is None or score > best[0]:
@@ -273,7 +273,7 @@ def search_weak_rarity(
             metrics = candidate_metrics(generator, vector, honest_reference)
             score = (
                 -abs(metrics.delta_corner - policy.theta_rare)
-                - max(0.0, metrics.delta_main - policy.theta_tol) * 6.0
+                - max(0.0, metrics.delta_main - policy.theta_rarity_main_tol) * 6.0
                 - abs(metrics.deviation - 0.30) * 0.25
             )
             if best is None or score > best[0]:

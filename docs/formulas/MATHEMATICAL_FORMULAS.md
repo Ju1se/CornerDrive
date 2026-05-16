@@ -127,7 +127,7 @@ IF ΔL_main > θ_tol THEN classify as FRAUD
 
 **Rarity Discovery**:
 ```
-IF (ΔL_corner ≤ θ_rare) AND (ΔL_main ≤ θ_tol) THEN classify as RARITY
+IF (ΔL_corner ≤ θ_rare) AND (ΔL_main ≤ θ_rarity_main_tol) THEN classify as RARITY
 ```
 
 **Honest Contribution**:
@@ -136,13 +136,16 @@ IF ΔL_main < 0 THEN classify as HONEST
 ```
 
 **Boundary Note**:
-This is the current implementation rule. Rarity is allowed only within the
-main-task damage budget `θ_tol`; main-helpful but corner-harmful updates are
-handled by the explicit corner-harm guard before being accepted as HONEST.
+This is the current V4.1 implementation rule. Clean rarity uses the stricter
+main-task safety band `θ_rarity_main_tol`, while `θ_tol` remains the stronger
+fraud threshold. Main-helpful but corner-harmful updates are handled by the
+explicit corner-harm guard before being accepted as HONEST.
 
 **Noise**:
 ```
-IF (0 < ΔL_main ≤ θ_tol AND ΔL_corner ≤ θ_rare) OR (θ_tol ≥ ΔL_main ≥ 0 AND ΔL_corner > θ_rare) THEN classify as NOISE
+IF (θ_rarity_main_tol < ΔL_main ≤ θ_tol AND ΔL_corner ≤ θ_rare)
+OR (θ_tol ≥ ΔL_main ≥ 0 AND ΔL_corner > θ_rare)
+THEN classify as NOISE
 ```
 
 ## L3: Global Validation

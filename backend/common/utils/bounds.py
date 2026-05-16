@@ -70,7 +70,8 @@ def validate_policy_bounds(policy: Policy) -> Tuple[bool, list[str]]:
 
 def validate_policy_step(
     current: Policy,
-    proposed: Policy
+    proposed: Policy,
+    max_steps: dict[str, float] | None = None,
 ) -> Tuple[bool, list[str]]:
     """
     Validate that policy changes don't exceed maximum step size.
@@ -83,7 +84,7 @@ def validate_policy_step(
         Tuple of (is_valid, list_of_violations)
     """
     violations = []
-    max_steps = PolicyMaxStep().model_dump()
+    max_steps = max_steps or PolicyMaxStep().model_dump()
 
     for field, max_delta in max_steps.items():
         current_val = getattr(current, field, None)

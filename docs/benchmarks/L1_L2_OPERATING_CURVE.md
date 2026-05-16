@@ -50,6 +50,15 @@ python scripts/export_l1_l2_operating_curve.py --sweep frontier
 python scripts/export_l1_l2_operating_curve.py --sweep threshold
 ```
 
+To generate the paper-facing audit cost frontier from the existing V2.5
+recheck sweep:
+
+```bash
+python scripts/export_cost_performance_frontier.py \
+  --input results/audit_reproduction/v25_artifacts_b24/v25_recheck_sweep_table.csv \
+  --output-dir results/cost_performance_frontier
+```
+
 ## Outputs
 
 - `l1_l2_operating_curve_config.json`: run configuration and fixed generation
@@ -57,6 +66,10 @@ python scripts/export_l1_l2_operating_curve.py --sweep threshold
 - `l1_l2_operating_curve_by_seed.csv`: one row per seed/configuration.
 - `l1_l2_operating_curve_summary.csv`: mean/std summary grouped by L1/L2
   operating point.
+- `cost_performance_frontier.csv`: compact table with audit queue rate,
+  corner-harm survival, corner accuracy, main accuracy, and rarity recall.
+- `audit_cost_frontier.svg`: dependency-free plot of L1 review cost against
+  corner-harm survival and corner accuracy.
 
 Key columns:
 

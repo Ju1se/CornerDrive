@@ -26,6 +26,14 @@ class L1Scores:
     sign_disagreement: Optional[float]
     reputation_risk: Optional[float]
     audit_age_score: Optional[float]
+    pred_delta_main: Optional[float]
+    pred_delta_corner: Optional[float]
+    main_alignment: Optional[float]
+    corner_alignment: Optional[float]
+    main_harm_proxy: Optional[float]
+    corner_harm_proxy: Optional[float]
+    corner_benefit_proxy: Optional[float]
+    dual_conflict_score: Optional[float]
     risk_score: float
 
     def to_dict(self) -> dict[str, Any]:
@@ -111,6 +119,26 @@ def sign_disagreement_scores(
     return disagreements
 
 
+def first_order_delta_scores(
+    gradients: list[np.ndarray],
+    validation_gradient: np.ndarray | None,
+    learning_rate: float,
+) -> list[float]:
+    """Estimate validation loss drift with a first-order Taylor proxy.
+
+    L2 measures ΔL = L(W - ηg_i; D) - L(W; D). L1V4 approximates this as
+    -η <∇L(W; D), g_i>, which is cheap once the validation gradient is known.
+    """
+
+    if validation_gradient is None:
+        return [0.0 for _ in gradients]
+    ref = np.ravel(validation_gradient)
+    return [
+        _safe_float(-float(learning_rate) * float(np.dot(ref, np.ravel(gradient))))
+        for gradient in gradients
+    ]
+
+
 def reputation_risk_from_state(state: Mapping[str, Any] | None) -> float:
     if state is None:
         return 0.0
@@ -143,6 +171,9 @@ def compute_l1_scores(
     reference: np.ndarray,
     config: L1RouterConfig,
     *,
+    main_validation_gradient: np.ndarray | None = None,
+    corner_validation_gradient: np.ndarray | None = None,
+    learning_rate: float = 1.0,
     client_states: Mapping[str, Mapping[str, Any]] | None = None,
     current_round: int = 0,
 ) -> list[L1Scores]:
@@ -175,12 +206,59 @@ def compute_l1_scores(
         )
         for vehicle_id in vehicle_ids
     ]
+    pred_delta_main = first_order_delta_scores(
+        gradients,
+        main_validation_gradient if config.uses_dual_proxy else None,
+        learning_rate,
+    )
+    pred_delta_corner = first_order_delta_scores(
+        gradients,
+        corner_validation_gradient if config.uses_dual_proxy else None,
+        learning_rate,
+    )
+    main_alignments = [
+        _safe_float(_cosine_similarity(gradient, main_validation_gradient))
+        if config.uses_dual_proxy and main_validation_gradient is not None
+        else 0.0
+        for gradient in gradients
+    ]
+    corner_alignments = [
+        _safe_float(_cosine_similarity(gradient, corner_validation_gradient))
+        if config.uses_dual_proxy and corner_validation_gradient is not None
+        else 0.0
+        for gradient in gradients
+    ]
+    main_harm_scores = [
+        max(0.0, value - config.theta_main_proxy)
+        for value in pred_delta_main
+    ]
+    corner_harm_scores = [
+        max(0.0, value - config.theta_corner_harm_proxy)
+        for value in pred_delta_corner
+    ]
+    corner_benefit_scores = [
+        max(0.0, -value)
+        for value in pred_delta_corner
+    ]
+    dual_conflict_scores = [
+        max(0.0, -main_delta) * max(0.0, corner_delta)
+        for main_delta, corner_delta in zip(pred_delta_main, pred_delta_corner)
+    ]
 
     cos_rank = rank_normalize(cosine_deviations)
     norm_rank = rank_normalize(norm_scores) if config.uses_norm else [0.0] * len(gradients)
     sign_rank = rank_normalize(sign_scores) if config.uses_sign else [0.0] * len(gradients)
     rep_rank = rank_normalize(rep_scores) if config.uses_reputation_age else [0.0] * len(gradients)
     age_rank = rank_normalize(age_scores) if config.uses_reputation_age else [0.0] * len(gradients)
+    main_harm_rank = (
+        rank_normalize(main_harm_scores) if config.uses_dual_proxy else [0.0] * len(gradients)
+    )
+    corner_harm_rank = (
+        rank_normalize(corner_harm_scores) if config.uses_dual_proxy else [0.0] * len(gradients)
+    )
+    corner_benefit_rank = (
+        rank_normalize(corner_benefit_scores) if config.uses_dual_proxy else [0.0] * len(gradients)
+    )
 
     weights: list[tuple[float, list[float]]] = [(config.cos_weight, cos_rank)]
     if config.uses_norm:
@@ -190,6 +268,10 @@ def compute_l1_scores(
     if config.uses_reputation_age:
         weights.append((config.reputation_weight, rep_rank))
         weights.append((config.audit_age_weight, age_rank))
+    if config.uses_dual_proxy:
+        weights.append((config.dual_main_weight, main_harm_rank))
+        weights.append((config.dual_corner_harm_weight, corner_harm_rank))
+        weights.append((config.dual_corner_benefit_weight, corner_benefit_rank))
     weight_total = sum(weight for weight, _ in weights) or 1.0
 
     scores: list[L1Scores] = []
@@ -206,6 +288,14 @@ def compute_l1_scores(
                 sign_disagreement=sign_scores[idx] if config.uses_sign else None,
                 reputation_risk=rep_scores[idx] if config.uses_reputation_age else None,
                 audit_age_score=age_scores[idx] if config.uses_reputation_age else None,
+                pred_delta_main=pred_delta_main[idx] if config.uses_dual_proxy else None,
+                pred_delta_corner=pred_delta_corner[idx] if config.uses_dual_proxy else None,
+                main_alignment=main_alignments[idx] if config.uses_dual_proxy else None,
+                corner_alignment=corner_alignments[idx] if config.uses_dual_proxy else None,
+                main_harm_proxy=main_harm_scores[idx] if config.uses_dual_proxy else None,
+                corner_harm_proxy=corner_harm_scores[idx] if config.uses_dual_proxy else None,
+                corner_benefit_proxy=corner_benefit_scores[idx] if config.uses_dual_proxy else None,
+                dual_conflict_score=dual_conflict_scores[idx] if config.uses_dual_proxy else None,
                 risk_score=float(risk_score),
             )
         )

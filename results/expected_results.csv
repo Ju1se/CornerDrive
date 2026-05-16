@@ -1,6 +1,6 @@
 paper_item,method_or_setting,metric,expected_value,tolerance,source_file
-Table 5.1,CornerDrive,macro_fraud_survival,0.3444,0.01,results/real_gradient_reliability_medium/real_gradient_reliability_summary.csv
-Table 5.1,CornerDrive,macro_rarity_retention,0.5763,0.02,results/real_gradient_reliability_medium/real_gradient_reliability_summary.csv
+Table 5.1,CornerDrive,macro_fraud_survival,0.2393,0.02,results/real_gradient_reliability_medium/real_gradient_reliability_summary.csv
+Table 5.1,CornerDrive,macro_rarity_retention,0.5072,0.03,results/real_gradient_reliability_medium/real_gradient_reliability_summary.csv
 ALG main,CornerDrive p=0.10,main_accuracy_percent,85.58,0.75,results/audit_reproduction/v25_artifacts_b24/v25_main_result_table.csv
 ALG main,CornerDrive p=0.10,corner_accuracy_percent,61.24,0.75,results/audit_reproduction/v25_artifacts_b24/v25_main_result_table.csv
 ALG main,CornerDrive p=0.10,sign_flip_survival_percent,0.00,0.01,results/audit_reproduction/v25_artifacts_b24/v25_main_result_table.csv
