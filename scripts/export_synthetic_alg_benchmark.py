@@ -60,7 +60,7 @@ UPDATE_CONFUSION_COLUMNS = ("Fraud", "Rarity", "HonestSafe", "Noise", "Not audit
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Export V2.5 anti-circularity benchmark tables."
+        description="Export synthetic ALG anti-circularity benchmark tables."
     )
     parser.add_argument("--rounds", type=int, default=24)
     parser.add_argument("--cycle-rounds", type=int, default=12)
@@ -89,8 +89,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--l1-router-mode",
         type=str,
-        default="v25_cosine_fixed",
-        help="L1 router mode: v25_cosine_fixed, m1, m2, m3, or m4/l1v3.",
+        default="cosine_recheck",
+        help="L1 router mode: cosine_recheck or dual_proxy_budgeted.",
     )
     parser.add_argument(
         "--l1-queue-budget-ratio",
@@ -109,7 +109,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=PROJECT_ROOT / "results" / "v25_artifacts",
+        default=PROJECT_ROOT / "results" / "synthetic_alg_benchmark",
     )
     return parser.parse_args()
 
@@ -929,7 +929,7 @@ def build_dataset_isolation_config(eval_bundle) -> dict[str, Any]:
     }
 
 
-def build_v25_run_config(
+def build_synthetic_alg_run_config(
     *,
     args: argparse.Namespace,
     base_config: dict[str, Any],
@@ -940,14 +940,14 @@ def build_v25_run_config(
     payload = dict(base_config)
     payload.update({
         "experiment_id": (
-            f"cornerdrive_v25_r{args.rounds}_c{args.cycle_rounds}_"
+            f"cornerdrive_synthetic_alg_r{args.rounds}_c{args.cycle_rounds}_"
             f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
         ),
-        "benchmark_version": "V2.5",
+        "benchmark_version": "synthetic ALG",
         "ground_truth_mode": "archetype",
         "policy_adaptation": "disabled",
         "policy_adaptation_reason": (
-            "V2.5 isolates server-side audit behavior; oracle splits are report-only "
+            "synthetic ALG isolates server-side audit behavior; oracle splits are report-only "
             "and do not feed threshold updates."
         ),
         "recheck_values": recheck_values,
@@ -960,25 +960,25 @@ def build_v25_run_config(
         "overall_ground_truth_counts": dict(overall_counts),
         "server_lr_eta": L2_LEARNING_RATE,
         "result_tables": [
-            "v25_main_result_table.csv",
-            "v25_main_result_table_by_seed.csv",
-            "v25_recheck_sweep_table.csv",
-            "v25_audit_ablation_table.csv",
-            "v25_audit_ablation_by_seed.csv",
-            "v25_audit_ablation_l2_raw.csv",
-            "v25_update_confusion_l2_conditional.csv",
-            "v25_update_confusion_end_to_end.csv",
-            "v25_rarity_recognition_retention.csv",
-            "v25_audit_ablation_rarity_recognition_retention.csv",
-            "v25_audit_ablation_main_harm.csv",
-            "v25_audit_ablation_conflict_probe.csv",
-            "v25_audit_oracle_consistency.csv",
-            "v25_archetype_generation_counts.csv",
-            "v25_l1_routing_by_archetype_reason.csv",
-            "v25_l2_confusion_matrix.csv",
-            "v25_rarity_discovery_metrics.csv",
-            "v25_fraud_survival_by_family.csv",
-            "v25_energy_attack_validation.csv",
+            "synthetic_alg_main_result_table.csv",
+            "synthetic_alg_main_result_table_by_seed.csv",
+            "synthetic_alg_recheck_sweep_table.csv",
+            "synthetic_alg_audit_ablation_table.csv",
+            "synthetic_alg_audit_ablation_by_seed.csv",
+            "synthetic_alg_audit_ablation_l2_raw.csv",
+            "synthetic_alg_update_confusion_l2_conditional.csv",
+            "synthetic_alg_update_confusion_end_to_end.csv",
+            "synthetic_alg_rarity_recognition_retention.csv",
+            "synthetic_alg_audit_ablation_rarity_recognition_retention.csv",
+            "synthetic_alg_audit_ablation_main_harm.csv",
+            "synthetic_alg_audit_ablation_conflict_probe.csv",
+            "synthetic_alg_audit_oracle_consistency.csv",
+            "synthetic_alg_archetype_generation_counts.csv",
+            "synthetic_alg_l1_routing_by_archetype_reason.csv",
+            "synthetic_alg_l2_confusion_matrix.csv",
+            "synthetic_alg_rarity_discovery_metrics.csv",
+            "synthetic_alg_fraud_survival_by_family.csv",
+            "synthetic_alg_energy_attack_validation.csv",
         ],
     })
     return payload
@@ -1193,7 +1193,7 @@ def main() -> int:
         clients_total=len(first_generator.vehicle_pool),
         clients_per_round=len(first_rounds[0].gradients) if first_rounds else 0,
     )
-    run_config = build_v25_run_config(
+    run_config = build_synthetic_alg_run_config(
         args=args,
         base_config=base_config,
         recheck_values=recheck_values,
@@ -1230,18 +1230,18 @@ def main() -> int:
     energy_validation = all_energy_validation
     dataset_isolation = build_dataset_isolation_config(eval_bundle)
 
-    write_json(output_dir / "v25_run_config.json", run_config)
-    write_json(output_dir / "v25_dataset_isolation_config.json", dataset_isolation)
+    write_json(output_dir / "synthetic_alg_run_config.json", run_config)
+    write_json(output_dir / "synthetic_alg_dataset_isolation_config.json", dataset_isolation)
     write_json(
-        output_dir / "v25_recheck_summaries.json",
+        output_dir / "synthetic_alg_recheck_summaries.json",
         recheck_summaries,
     )
     write_json(
-        output_dir / "v25_audit_ablation_summaries.json",
+        output_dir / "synthetic_alg_audit_ablation_summaries.json",
         ablation_summaries,
     )
     write_csv(
-        output_dir / "v25_main_result_table.csv",
+        output_dir / "synthetic_alg_main_result_table.csv",
         [
             "method",
             "seeds",
@@ -1257,7 +1257,7 @@ def main() -> int:
         main_table,
     )
     write_csv(
-        output_dir / "v25_main_result_table_by_seed.csv",
+        output_dir / "synthetic_alg_main_result_table_by_seed.csv",
         [
             "seed",
             "method",
@@ -1273,7 +1273,7 @@ def main() -> int:
         seed_main_rows,
     )
     write_csv(
-        output_dir / "v25_recheck_sweep_table.csv",
+        output_dir / "synthetic_alg_recheck_sweep_table.csv",
         [
             "p_recheck",
             "seeds",
@@ -1289,7 +1289,7 @@ def main() -> int:
         recheck_sweep_table,
     )
     write_csv(
-        output_dir / "v25_audit_ablation_table.csv",
+        output_dir / "synthetic_alg_audit_ablation_table.csv",
         [
             "audit_mode",
             "seeds",
@@ -1305,7 +1305,7 @@ def main() -> int:
         ablation_table,
     )
     write_csv(
-        output_dir / "v25_audit_ablation_by_seed.csv",
+        output_dir / "synthetic_alg_audit_ablation_by_seed.csv",
         [
             "seed",
             "audit_mode",
@@ -1321,7 +1321,7 @@ def main() -> int:
         seed_ablation_rows,
     )
     write_csv(
-        output_dir / "v25_update_confusion_l2_conditional.csv",
+        output_dir / "synthetic_alg_update_confusion_l2_conditional.csv",
         [
             "setting",
             "true_type",
@@ -1334,7 +1334,7 @@ def main() -> int:
         l2_conditional_confusion,
     )
     write_csv(
-        output_dir / "v25_update_confusion_end_to_end.csv",
+        output_dir / "synthetic_alg_update_confusion_end_to_end.csv",
         [
             "setting",
             "true_type",
@@ -1348,7 +1348,7 @@ def main() -> int:
         end_to_end_confusion,
     )
     write_csv(
-        output_dir / "v25_rarity_recognition_retention.csv",
+        output_dir / "synthetic_alg_rarity_recognition_retention.csv",
         [
             "setting",
             "rarity_total",
@@ -1365,7 +1365,7 @@ def main() -> int:
         rarity_recognition,
     )
     write_csv(
-        output_dir / "v25_audit_ablation_rarity_recognition_retention.csv",
+        output_dir / "synthetic_alg_audit_ablation_rarity_recognition_retention.csv",
         [
             "audit_mode",
             "rarity_total",
@@ -1382,7 +1382,7 @@ def main() -> int:
         ablation_rarity_recognition,
     )
     write_csv(
-        output_dir / "v25_audit_ablation_main_harm.csv",
+        output_dir / "synthetic_alg_audit_ablation_main_harm.csv",
         [
             "audit_mode",
             "accepted_total",
@@ -1395,7 +1395,7 @@ def main() -> int:
         ablation_main_harm,
     )
     write_csv(
-        output_dir / "v25_audit_ablation_l2_raw.csv",
+        output_dir / "synthetic_alg_audit_ablation_l2_raw.csv",
         [
             "seed",
             "audit_mode",
@@ -1420,7 +1420,7 @@ def main() -> int:
         raw_ablation_l2,
     )
     write_csv(
-        output_dir / "v25_audit_ablation_conflict_probe.csv",
+        output_dir / "synthetic_alg_audit_ablation_conflict_probe.csv",
         [
             "seed",
             "audit_mode",
@@ -1439,7 +1439,7 @@ def main() -> int:
         conflict_probe_rows,
     )
     write_csv(
-        output_dir / "v25_audit_oracle_consistency.csv",
+        output_dir / "synthetic_alg_audit_oracle_consistency.csv",
         [
             "setting",
             "signal",
@@ -1450,7 +1450,7 @@ def main() -> int:
         audit_oracle_consistency,
     )
     write_csv(
-        output_dir / "v25_archetype_generation_counts.csv",
+        output_dir / "synthetic_alg_archetype_generation_counts.csv",
         [
             "round_id",
             "phase_name",
@@ -1462,7 +1462,7 @@ def main() -> int:
         archetype_counts,
     )
     write_csv(
-        output_dir / "v25_l1_routing_by_archetype_reason.csv",
+        output_dir / "synthetic_alg_l1_routing_by_archetype_reason.csv",
         [
             "setting",
             "archetype",
@@ -1477,7 +1477,7 @@ def main() -> int:
         l1_routing,
     )
     write_csv(
-        output_dir / "v25_l2_confusion_matrix.csv",
+        output_dir / "synthetic_alg_l2_confusion_matrix.csv",
         [
             "setting",
             "ground_truth_archetype",
@@ -1492,7 +1492,7 @@ def main() -> int:
         l2_confusion,
     )
     write_csv(
-        output_dir / "v25_rarity_discovery_metrics.csv",
+        output_dir / "synthetic_alg_rarity_discovery_metrics.csv",
         [
             "setting",
             "rarity_total",
@@ -1505,7 +1505,7 @@ def main() -> int:
         rarity_metrics,
     )
     write_csv(
-        output_dir / "v25_fraud_survival_by_family.csv",
+        output_dir / "synthetic_alg_fraud_survival_by_family.csv",
         [
             "family",
             *[f"survival_{p_column(probability)}" for probability in recheck_values],
@@ -1518,7 +1518,7 @@ def main() -> int:
         fraud_family,
     )
     write_csv(
-        output_dir / "v25_energy_attack_validation.csv",
+        output_dir / "synthetic_alg_energy_attack_validation.csv",
         [
             "family",
             "target_condition",
@@ -1531,7 +1531,7 @@ def main() -> int:
         energy_validation,
     )
     write_csv(
-        output_dir / "v25_baseline_diagnostics_raw.csv",
+        output_dir / "synthetic_alg_baseline_diagnostics_raw.csv",
         [
             "round_id",
             "method",
@@ -1550,7 +1550,7 @@ def main() -> int:
         all_baseline_rows,
     )
     write_csv(
-        output_dir / "v25_l1_routing_raw.csv",
+        output_dir / "synthetic_alg_l1_routing_raw.csv",
         [
             "setting",
             "round_id",
@@ -1565,7 +1565,7 @@ def main() -> int:
         raw_l1,
     )
     write_csv(
-        output_dir / "v25_l2_audit_raw.csv",
+        output_dir / "synthetic_alg_l2_audit_raw.csv",
         [
             "setting",
             "round_id",
@@ -1589,7 +1589,7 @@ def main() -> int:
         raw_l2,
     )
     write_csv(
-        output_dir / "v25_round_summary_raw.csv",
+        output_dir / "synthetic_alg_round_summary_raw.csv",
         [
             "setting",
             "round_id",
@@ -1607,7 +1607,7 @@ def main() -> int:
         raw_round_summary,
     )
     write_csv(
-        output_dir / "v25_policy_trace_raw.csv",
+        output_dir / "synthetic_alg_policy_trace_raw.csv",
         [
             "setting",
             "round_id",
@@ -1622,7 +1622,7 @@ def main() -> int:
         raw_policy,
     )
     write_csv(
-        output_dir / "v25_cornerdrive_diagnostics_raw.csv",
+        output_dir / "synthetic_alg_cornerdrive_diagnostics_raw.csv",
         [
             "setting",
             "round_id",
@@ -1635,7 +1635,7 @@ def main() -> int:
         raw_flpg_baseline,
     )
 
-    print(f"Exported V2.5 benchmark artifacts to {output_dir}")
+    print(f"Exported synthetic ALG benchmark artifacts to {output_dir}")
     return 0
 
 

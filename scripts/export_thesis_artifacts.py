@@ -97,8 +97,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--l1-router-mode",
         type=str,
-        default="v25_cosine_fixed",
-        help="L1 router mode: v25_cosine_fixed, m1, m2, m3, or m4/l1v3.",
+        default="cosine_recheck",
+        help="L1 router mode: cosine_recheck or dual_proxy_budgeted.",
     )
     parser.add_argument(
         "--l1-queue-budget-ratio",
@@ -664,7 +664,7 @@ def run_flpg_with_artifacts(
         else:
             proposal = None
             checked = None
-            update_reason = "policy adaptation disabled for isolated V2.5 benchmark"
+            update_reason = "policy adaptation disabled for isolated synthetic ALG benchmark"
             blocked = False
         policy_rows.append({
             "round_id": round_bundle.round_id,

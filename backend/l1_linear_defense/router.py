@@ -144,37 +144,6 @@ def route_l1(
     if config.uses_dual_proxy:
         return _route_dual_proxy(scores, config, rng)
 
-    hard_candidates = [
-        (score, _threshold_reason(score, config))
-        for score in scores
-        if _threshold_reason(score, config) is not None
-    ]
-    hard_candidates.sort(key=lambda item: item[0].risk_score, reverse=True)
-
-    budget = max(1, min(n, int(ceil(config.queue_budget_ratio * n))))
-    for score, reason in hard_candidates[:budget]:
-        routed[score.index] = reason or "risk_topB"
-
-    remaining_budget = max(0, budget - len(routed))
-    if remaining_budget > 0:
-        remaining = [
-            score for score in scores
-            if score.index not in routed
-        ]
-        remaining.sort(key=lambda score: score.risk_score, reverse=True)
-        for score in remaining[:remaining_budget]:
-            routed[score.index] = "risk_topB"
-
-    non_routed = [
-        score for score in scores
-        if score.index not in routed
-    ]
-    random_quota = int(config.random_recheck_ratio * n)
-    if config.random_recheck_ratio > 0.0 and random_quota == 0 and non_routed:
-        random_quota = 1
-    for score in stratified_sample_by_risk(non_routed, random_quota, rng):
-        routed[score.index] = "stratified_random"
-
     return _build_route_result(scores, routed)
 
 

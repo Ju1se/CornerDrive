@@ -1,8 +1,8 @@
 # L1/L2 Operating-Curve Benchmark
 
-This benchmark complements the existing L1V3 ablation and exhaustive L2 audit.
-Instead of comparing one fixed router setting at a time, it exports two
-operating curves on the same generated rounds:
+This benchmark complements the exhaustive L2 audit. Instead of comparing one
+fixed router setting at a time, it exports two operating curves on the same
+generated rounds:
 
 1. **L1 visibility-cost frontier**: varies router mode, recheck probability,
    and queue budget ratio while holding the L2 thresholds fixed.
@@ -35,7 +35,7 @@ python scripts/export_l1_l2_operating_curve.py \
   --cycle-rounds 12 \
   --pretrain-epochs 5 \
   --seeds 20260318,20260319,20260320 \
-  --l1-modes m0,m4 \
+  --l1-modes cosine_recheck,dual_proxy_budgeted \
   --p-recheck-values 0.0,0.05,0.10 \
   --budget-values 0.20,0.35,0.50 \
   --theta-tol-values 0.025,0.05,0.075 \
@@ -50,12 +50,12 @@ python scripts/export_l1_l2_operating_curve.py --sweep frontier
 python scripts/export_l1_l2_operating_curve.py --sweep threshold
 ```
 
-To generate the paper-facing audit cost frontier from the existing V2.5
+To generate the paper-facing audit cost frontier from the existing synthetic ALG
 recheck sweep:
 
 ```bash
 python scripts/export_cost_performance_frontier.py \
-  --input results/audit_reproduction/v25_artifacts_b24/v25_recheck_sweep_table.csv \
+  --input results/audit_reproduction/synthetic_alg_benchmark_b24/synthetic_alg_recheck_sweep_table.csv \
   --output-dir results/cost_performance_frontier
 ```
 
@@ -87,9 +87,9 @@ Key columns:
 
 ## What This Improves
 
-The existing `export_l1v3_ablation.py` is useful for M0-M4 router comparison,
-but it reports fixed operating points. This script shows the budget frontier:
-how much L2 cost is needed to improve fraud catch and rarity retention.
+The old fixed-point router ablation has been removed from the reproduction
+path. This script shows the current calibrated budget frontier: how much L2
+cost is needed to improve fraud catch and rarity retention.
 
 The existing stress-test exporter includes threshold perturbations, but those
 stress cases are not a compact L1/L2 calibration table. This script adds a

@@ -5,7 +5,7 @@ scripts still take command-line arguments and a small number of environment
 variables; keep the YAML files synchronized with the README commands so readers
 can audit the exact parameter choices without searching through source code.
 
-The thesis-matching ALG/V2.5 setting is `cornerdrive_v25.yaml`. Its most
+The thesis-matching synthetic ALG setting is `synthetic_alg.yaml`. Its most
 important reproducibility controls are:
 
 - `batch_size: 24`

@@ -23,17 +23,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--real-dir",
         type=Path,
-        default=PROJECT_ROOT / "results" / "real_gradient_reliability_medium",
+        default=PROJECT_ROOT / "results" / "real_gradient_reliability_calibrated_holdout",
     )
     parser.add_argument(
-        "--v25-dir",
+        "--synthetic-dir",
         type=Path,
-        default=PROJECT_ROOT / "results" / "audit_reproduction" / "v25_artifacts_b24",
+        default=PROJECT_ROOT / "results" / "audit_reproduction" / "synthetic_alg_benchmark_b24",
     )
     parser.add_argument(
         "--stress-dir",
         type=Path,
-        default=PROJECT_ROOT / "results" / "audit_reproduction" / "v25_stress_tests_b24",
+        default=PROJECT_ROOT / "results" / "audit_reproduction" / "synthetic_stress_tests_b24",
     )
     parser.add_argument(
         "--divergence-dir",
@@ -129,7 +129,7 @@ def real_gradient_provenance(real_dir: Path) -> dict[str, Any]:
 def write_provenance(args: argparse.Namespace) -> None:
     inputs = {
         "real_gradient_summary": args.real_dir / "real_gradient_reliability_summary.csv",
-        "v25_main_result_table": args.v25_dir / "v25_main_result_table.csv",
+        "synthetic_alg_main_result_table": args.synthetic_dir / "synthetic_alg_main_result_table.csv",
         "stress_rarity_overlap": args.stress_dir / "stress_rarity_overlap_summary.csv",
         "stress_proxy_sensitivity": args.stress_dir / "stress_proxy_sensitivity_summary.csv",
         "corner_family_divergence": args.divergence_dir / "corner_family_divergence_summary.csv",
@@ -222,8 +222,8 @@ def build_real_cornerdrive_by_dataset(real_dir: Path, output_dir: Path) -> None:
     write_csv(output_dir / "table_5_2_cornerdrive_real_gradient_by_dataset.csv", out)
 
 
-def build_alg_main(v25_dir: Path, output_dir: Path) -> None:
-    rows = read_csv(v25_dir / "v25_main_result_table.csv")
+def build_alg_main(synthetic_alg_dir: Path, output_dir: Path) -> None:
+    rows = read_csv(synthetic_alg_dir / "synthetic_alg_main_result_table.csv")
     out = [
         {
             "method": row.get("method", ""),
@@ -320,7 +320,7 @@ def main() -> int:
     args = parse_args()
     build_real_macro(args.real_dir, args.output_dir)
     build_real_cornerdrive_by_dataset(args.real_dir, args.output_dir)
-    build_alg_main(args.v25_dir, args.output_dir)
+    build_alg_main(args.synthetic_dir, args.output_dir)
     build_stress_tables(args.stress_dir, args.output_dir)
     build_divergence_table(args.divergence_dir, args.output_dir)
     build_corner_harm_table(args.corner_harm_dir, args.output_dir)

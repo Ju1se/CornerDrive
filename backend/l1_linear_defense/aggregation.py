@@ -32,7 +32,7 @@ class AggregationResult:
     iterations: int
     routing_reasons: Dict[int, str] = field(default_factory=dict)
     l1_score_details: Dict[int, Dict[str, Any]] = field(default_factory=dict)
-    router_mode: str = "v25_cosine_fixed"
+    router_mode: str = "cosine_recheck"
     quarantine_indices: List[int] = field(default_factory=list)
     low_weight_indices: List[int] = field(default_factory=list)
     route_actions: Dict[int, str] = field(default_factory=dict)
@@ -163,10 +163,11 @@ def filter_suspects(
             gradient to L2 for blind recheck
         rng: Optional deterministic RNG for reproducible benchmarks
         router_config: Optional L1 router mode/config. Defaults to the
-            V2.5 cosine + fixed recheck behavior.
-        client_states: Optional cross-round state used by L1V3 reputation and
-            audit-age signals. Ignored by V2.5 mode.
-        current_round: Current round id for audit-age scoring.
+            cosine + fixed recheck behavior.
+        client_states: Optional cross-round state retained for API
+            compatibility. The canonical calibrated router does not use reputation
+            or audit-age features.
+        current_round: Current round id retained for API compatibility.
 
     Returns:
         AggregationResult with clean gradients and suspect list
@@ -179,7 +180,7 @@ def filter_suspects(
 
     # Step 1: Compute geometric median
     median, iterations = geometric_median(gradients)
-    router_mode = router_config.mode if router_config is not None else "v25_cosine_fixed"
+    router_mode = router_config.mode if router_config is not None else "cosine_recheck"
     if router_config is not None:
         replace_payload: Dict[str, Any] = {"cos_deviation_threshold": threshold}
         if theta_tol is not None:
@@ -197,7 +198,7 @@ def filter_suspects(
     random_draw = rng.random if rng is not None else random.random
 
     l1_score_details: Dict[int, Dict[str, Any]] = {}
-    if router_config is None or router_config.mode == "v25_cosine_fixed":
+    if router_config is None or router_config.mode == "cosine_recheck":
         for i, (gradient, vid) in enumerate(zip(gradients, vehicle_ids)):
             score = cosine_deviation_score(gradient, median)
             scores[i] = score
@@ -260,7 +261,7 @@ def filter_suspects(
                 l1_score_details[idx]["risk_score"],
                 scores[idx],
             )
-    if router_config is None or router_config.mode == "v25_cosine_fixed":
+    if router_config is None or router_config.mode == "cosine_recheck":
         quarantine_indices = []
         low_weight_indices = []
         route_actions = {

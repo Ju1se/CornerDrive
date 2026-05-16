@@ -37,7 +37,7 @@ from export_thesis_artifacts import (  # noqa: E402
     write_csv,
     write_json,
 )
-from export_v25_artifacts import (  # noqa: E402
+from export_synthetic_alg_benchmark import (  # noqa: E402
     bool_value,
     family_stats_from_l2,
     parse_seed_values,
@@ -66,7 +66,7 @@ THRESHOLD_CONFIGS = (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Export V2.5 mechanism stress tests without changing the main benchmark."
+        description="Export synthetic ALG mechanism stress tests without changing the main benchmark."
     )
     parser.add_argument("--rounds", type=int, default=24)
     parser.add_argument("--cycle-rounds", type=int, default=12)
@@ -77,8 +77,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--l1-router-mode",
         type=str,
-        default="v25_cosine_fixed",
-        help="L1 router mode: v25_cosine_fixed, m1, m2, m3, or m4/l1v3.",
+        default="cosine_recheck",
+        help="L1 router mode: cosine_recheck or dual_proxy_budgeted.",
     )
     parser.add_argument(
         "--l1-queue-budget-ratio",
@@ -105,7 +105,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=PROJECT_ROOT / "results" / "v25_stress_tests",
+        default=PROJECT_ROOT / "results" / "synthetic_stress_tests",
     )
     parser.add_argument(
         "--skip-oracle-drift",
@@ -769,7 +769,7 @@ def main() -> int:
     ]
 
     write_json(
-        output_dir / "v25_stress_run_config.json",
+        output_dir / "synthetic_stress_run_config.json",
         {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "rounds": args.rounds,
@@ -837,7 +837,7 @@ def main() -> int:
         ),
     )
 
-    print(f"Exported V2.5 stress-test artifacts to {output_dir}")
+    print(f"Exported synthetic ALG stress-test artifacts to {output_dir}")
     return 0
 
 

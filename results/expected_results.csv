@@ -1,10 +1,10 @@
 paper_item,method_or_setting,metric,expected_value,tolerance,source_file
-Table 5.1,CornerDrive,macro_fraud_survival,0.0013,0.01,results/real_gradient_reliability_v41_best_holdout_20260527_20260546/real_gradient_reliability_macro_baseline.csv
-Table 5.1,CornerDrive,macro_rarity_retention,0.3767,0.03,results/real_gradient_reliability_v41_best_holdout_20260527_20260546/real_gradient_reliability_macro_baseline.csv
-ALG main,CornerDrive p=0.10,main_accuracy_percent,85.58,0.75,results/audit_reproduction/v25_artifacts_b24/v25_main_result_table.csv
-ALG main,CornerDrive p=0.10,corner_accuracy_percent,61.24,0.75,results/audit_reproduction/v25_artifacts_b24/v25_main_result_table.csv
-ALG main,CornerDrive p=0.10,sign_flip_survival_percent,0.00,0.01,results/audit_reproduction/v25_artifacts_b24/v25_main_result_table.csv
-ALG main,CornerDrive p=0.10,corner_harm_survival_percent,84.00,6.00,results/audit_reproduction/v25_artifacts_b24/v25_main_result_table.csv
-Table A.7,Baseline outlier,rarity_recognition_percent,100.00,0.01,results/audit_reproduction/v25_stress_tests_b24/stress_rarity_overlap_summary.csv
-Table A.8,Random main proxy,rarity_recognition_percent,0.00,0.01,results/audit_reproduction/v25_stress_tests_b24/stress_proxy_sensitivity_summary.csv
+Table 5.1,CornerDrive,macro_fraud_survival,0.0013,0.01,results/real_gradient_reliability_calibrated_holdout/real_gradient_reliability_macro_baseline.csv
+Table 5.1,CornerDrive,macro_rarity_retention,0.3767,0.03,results/real_gradient_reliability_calibrated_holdout/real_gradient_reliability_macro_baseline.csv
+Synthetic ALG main,CornerDrive p=0.10,main_accuracy_percent,85.58,0.75,results/audit_reproduction/synthetic_alg_benchmark_b24/synthetic_alg_main_result_table.csv
+Synthetic ALG main,CornerDrive p=0.10,corner_accuracy_percent,61.24,0.75,results/audit_reproduction/synthetic_alg_benchmark_b24/synthetic_alg_main_result_table.csv
+Synthetic ALG main,CornerDrive p=0.10,sign_flip_survival_percent,0.00,0.01,results/audit_reproduction/synthetic_alg_benchmark_b24/synthetic_alg_main_result_table.csv
+Synthetic ALG main,CornerDrive p=0.10,corner_harm_survival_percent,84.00,6.00,results/audit_reproduction/synthetic_alg_benchmark_b24/synthetic_alg_main_result_table.csv
+Table A.7,Baseline outlier,rarity_recognition_percent,100.00,0.01,results/audit_reproduction/synthetic_stress_tests_b24/stress_rarity_overlap_summary.csv
+Table A.8,Random main proxy,rarity_recognition_percent,0.00,0.01,results/audit_reproduction/synthetic_stress_tests_b24/stress_proxy_sensitivity_summary.csv
 Table A.9,rho=1.00,corner_accuracy_percent,61.24,0.75,results/audit_reproduction/corner_family_divergence_b24/corner_family_divergence_summary.csv

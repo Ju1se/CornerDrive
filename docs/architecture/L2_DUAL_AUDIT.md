@@ -80,7 +80,7 @@ def dual_audit(gradient, main_loss, corner_loss, current_weights, learning_rate)
 | ΔL_main < 0 (Helps Main) | ✓ HONEST | INCLUDE | +1 |
 | Otherwise (Negligible Impact) | ~ NOISE | DISCARD | 0 |
 
-Current boundary note: V4.1 separates the strong fraud threshold `θ_tol` from
+Current boundary note: calibrated separates the strong fraud threshold `θ_tol` from
 the stricter clean-rarity main safety band `θ_rarity-main`. Updates that improve
 corner loss but introduce positive main-task drift above this stricter band are
 treated as conflict/noise rather than clean rarity.

@@ -1,5 +1,5 @@
-experiment: cornerdrive_v25_alg
-description: "Thesis-matching ALG/V2.5 synthetic-gradient benchmark."
+experiment: cornerdrive_synthetic_alg
+description: "Thesis-matching synthetic ALG benchmark."
 
 environment:
   batch_size: 24
@@ -32,7 +32,7 @@ data_splits:
   oracle_corner: 200
 
 l1_router:
-  mode: v25_cosine_fixed
+  mode: cosine_recheck
   reference: geometric_median
   tau_screen: 0.70
   queue_budget_ratio: 0.35
@@ -53,7 +53,7 @@ per_seed_ground_truth_counts:
   fraud_corner_harm: 20
 
 outputs:
-  main_results: results/audit_reproduction/v25_artifacts_b24/v25_main_result_table.csv
-  recheck_sweep: results/audit_reproduction/v25_artifacts_b24/v25_recheck_sweep_table.csv
-  l1_routing: results/audit_reproduction/v25_artifacts_b24/v25_l1_routing_by_archetype_reason.csv
-  l2_confusion: results/audit_reproduction/v25_artifacts_b24/v25_l2_confusion_matrix.csv
+  main_results: results/audit_reproduction/synthetic_alg_benchmark_b24/synthetic_alg_main_result_table.csv
+  recheck_sweep: results/audit_reproduction/synthetic_alg_benchmark_b24/synthetic_alg_recheck_sweep_table.csv
+  l1_routing: results/audit_reproduction/synthetic_alg_benchmark_b24/synthetic_alg_l1_routing_by_archetype_reason.csv
+  l2_confusion: results/audit_reproduction/synthetic_alg_benchmark_b24/synthetic_alg_l2_confusion_matrix.csv

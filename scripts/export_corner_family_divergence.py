@@ -30,8 +30,8 @@ from export_thesis_artifacts import (  # noqa: E402
     write_csv,
     write_json,
 )
-from export_v25_artifacts import parse_seed_values  # noqa: E402
-from export_v25_stress_tests import run_level_metrics  # noqa: E402
+from export_synthetic_alg_benchmark import parse_seed_values  # noqa: E402
+from export_synthetic_stress_tests import run_level_metrics  # noqa: E402
 from generate_demo_data import cosine_similarity, normalize  # noqa: E402
 from l1_linear_defense.config import make_l1_router_config  # noqa: E402
 from policy_agent.analysis.unified_benchmark import _make_generator  # noqa: E402
@@ -43,7 +43,7 @@ DEFAULT_SEEDS = "20260318,20260319,20260320"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Export corner-family divergence rho-sweep for V2.5 anti-circularity checks."
+        description="Export corner-family divergence rho-sweep for synthetic ALG anti-circularity checks."
     )
     parser.add_argument("--rounds", type=int, default=24)
     parser.add_argument("--cycle-rounds", type=int, default=12)
@@ -57,7 +57,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--l1-router-mode",
         type=str,
-        default="v25_cosine_fixed",
+        default="cosine_recheck",
         help="L1 router mode to use during the sweep.",
     )
     parser.add_argument(

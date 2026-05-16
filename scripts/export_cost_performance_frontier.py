@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Export audit cost vs. safety/utility frontier artifacts.
 
-This script turns the existing V2.5 recheck sweep table into a compact
+This script turns the existing synthetic ALG recheck sweep table into a compact
 paper-facing frontier table and a dependency-free SVG figure.
 """
 
@@ -141,7 +141,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--input",
         type=Path,
-        default=PROJECT_ROOT / "results" / "audit_reproduction" / "v25_artifacts_b24" / "v25_recheck_sweep_table.csv",
+        default=PROJECT_ROOT / "results" / "audit_reproduction" / "synthetic_alg_benchmark_b24" / "synthetic_alg_recheck_sweep_table.csv",
     )
     parser.add_argument("--output-dir", type=Path, default=PROJECT_ROOT / "results" / "cost_performance_frontier")
     return parser.parse_args()

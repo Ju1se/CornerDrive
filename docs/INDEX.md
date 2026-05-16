@@ -37,7 +37,7 @@ Use the root `README.md` for quick onboarding. Use the documents here for archit
 
 ## Reports
 
-- [V2.5 Code Audit and Cleanup](reports/V25_CODE_AUDIT_AND_CLEANUP.md)
+- [Synthetic ALG Code Audit and Cleanup](reports/SYNTHETIC_ALG_CODE_AUDIT_AND_CLEANUP.md)
 - [Legacy Reports](reports/legacy/README.md) - historical notes only, not current thesis evidence
 
 ## Documentation Rules

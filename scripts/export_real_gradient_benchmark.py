@@ -18,10 +18,15 @@ for candidate in (PROJECT_ROOT, BACKEND_DIR):
 from common.schemas import DEFAULT_POLICY  # noqa: E402
 from policy_agent.analysis.real_gradient_benchmark import (  # noqa: E402
     RealGradientBenchmarkConfig,
-    make_real_data_adaptive_v41_policy,
+    make_real_gradient_calibrated_policy,
     run_real_gradient_benchmark,
     write_real_gradient_outputs,
 )
+
+
+CALIBRATED_POLICY_PROFILES = {
+    "real_gradient_calibrated",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -82,12 +87,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--zenopp-score-temperature", type=float, default=0.05)
     parser.add_argument(
         "--policy-profile",
-        choices=["default", "real_data_adaptive", "real_data_adaptive_v41"],
-        default="real_data_adaptive_v41",
+        choices=["default", "real_gradient_calibrated"],
+        default="real_gradient_calibrated",
         help=(
-            "CornerDrive policy profile. real_data_adaptive and "
-            "real_data_adaptive_v41 both use the calibrated V4.1 real-gradient "
-            "profile; default preserves the original baseline policy."
+            "CornerDrive policy profile. Use real_gradient_calibrated for the "
+            "teacher-facing benchmark; default preserves the cosine-recheck "
+            "baseline policy."
         ),
     )
     parser.add_argument("--theta-tol", type=float, default=None)
@@ -114,9 +119,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    if args.policy_profile in {"real_data_adaptive", "real_data_adaptive_v41"}:
+    if args.policy_profile in CALIBRATED_POLICY_PROFILES:
         l1_defaults = {
-            "cornerdrive_l1_mode": "v4_m4_dual_proxy_budgeted",
+            "cornerdrive_l1_mode": "dual_proxy_budgeted",
             "cornerdrive_l1_cos_weight": 0.35,
             "cornerdrive_l1_norm_weight": 0.20,
             "cornerdrive_l1_sign_weight": 0.15,
@@ -128,7 +133,7 @@ def main() -> None:
         }
     else:
         l1_defaults = {
-            "cornerdrive_l1_mode": "v25_cosine_fixed",
+            "cornerdrive_l1_mode": "cosine_recheck",
             "cornerdrive_l1_cos_weight": 0.35,
             "cornerdrive_l1_norm_weight": 0.20,
             "cornerdrive_l1_sign_weight": 0.15,
@@ -212,8 +217,8 @@ def main() -> None:
             else l1_defaults["cornerdrive_l1_random_recheck_ratio"]
         ),
     )
-    if args.policy_profile in {"real_data_adaptive", "real_data_adaptive_v41"}:
-        policy = make_real_data_adaptive_v41_policy()
+    if args.policy_profile in CALIBRATED_POLICY_PROFILES:
+        policy = make_real_gradient_calibrated_policy()
     else:
         policy = DEFAULT_POLICY
     policy_updates = {

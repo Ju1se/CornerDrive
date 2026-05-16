@@ -2,8 +2,9 @@
 
 This table makes threshold selection reviewer-auditable. The calibration sweep
 uses seeds `20260507` and `20260508` as the dev split, then reports the chosen
-settings on seed `20260509` as the test split. Later M3 profiles are stored in a
-single run table, so the exporter splits those rows by the same seed rule.
+settings on seed `20260509` as the test split. Deprecated router profiles are
+intentionally excluded from this helper so the reproduction path stays aligned
+with the final calibrated benchmark.
 
 ## Usage
 
