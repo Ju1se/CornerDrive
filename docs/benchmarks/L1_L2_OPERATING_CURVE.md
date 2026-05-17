@@ -50,7 +50,7 @@ python scripts/export_l1_l2_operating_curve.py --sweep frontier
 python scripts/export_l1_l2_operating_curve.py --sweep threshold
 ```
 
-To generate the paper-facing audit cost frontier from the existing synthetic ALG
+To generate the audit cost frontier from the existing synthetic ALG
 recheck sweep:
 
 ```bash

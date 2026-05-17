@@ -2,7 +2,7 @@
 """Export audit cost vs. safety/utility frontier artifacts.
 
 This script turns the existing synthetic ALG recheck sweep table into a compact
-paper-facing frontier table and a dependency-free SVG figure.
+frontier table and a dependency-free SVG figure.
 """
 
 from __future__ import annotations

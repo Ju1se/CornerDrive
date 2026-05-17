@@ -79,12 +79,19 @@ The real-gradient benchmark keeps client/update data, audit/reference data, and
 final evaluation data on deterministic separate surfaces where the source
 provides enough data.
 
+The real-gradient reliability benchmark is a multi-round FL simulation: every
+method receives the same sampled clients and attack schedule in each round, but
+each method updates its own model state, so later-round gradients are computed
+against that method's current checkpoint.
+
 ## Reproduce Main Results
 
 ### Quick thesis smoke check
 
 This regenerates the synthetic ALG main result, recheck sweep, and thesis CSV
-tables. It is the fastest thesis-critical check.
+tables that can be built from those outputs. It is the fastest thesis-critical
+check and removes stale real-gradient or appendix table outputs if their source
+results are not present.
 
 ```bash
 bash scripts/reproduce_all.sh main
@@ -200,11 +207,16 @@ See `results/expected_results.csv` for tolerances and source files.
 ## Rebuild Result Tables
 
 If result CSVs already exist, rebuild the thesis tables without rerunning the
-experiments:
+experiments. This command is strict by default: missing required inputs fail the
+run rather than leaving old tables in place.
 
 ```bash
 python scripts/make_paper_tables.py
 ```
+
+For section-only rebuilds, use the explicit missing-section flags used by
+`scripts/reproduce_all.sh`, for example `--allow-missing-real` or
+`--allow-missing-appendix`. Missing allowed sections remove stale table outputs.
 
 Outputs are written to `artifacts/tables/`.
 

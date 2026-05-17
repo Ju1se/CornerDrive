@@ -16,3 +16,8 @@ important reproducibility controls are:
 The thesis real-gradient setting is `real_gradient_reliability.yaml`. It records
 the held-out split protocol used to keep client/update gradients, audit/reference
 data, and final evaluation data separate.
+
+`real_gradient_calibration_manifest.json` records the frozen calibrated
+CornerDrive profile, the calibration seed range, and the final held-out seed
+range. The two seed sets are intentionally disjoint so threshold selection can
+be audited separately from final reporting.

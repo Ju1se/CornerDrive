@@ -27,6 +27,7 @@ from export_thesis_artifacts import (  # noqa: E402
     policy_with_recheck_probability,
     pretrain_initial_checkpoint,
     run_flpg_with_artifacts,
+    validate_synthetic_router_mode,
     write_csv,
     write_json,
 )
@@ -278,6 +279,7 @@ def threshold_label(value: float) -> str:
 
 def main() -> None:
     args = parse_args()
+    validate_synthetic_router_mode(args.l1_router_mode)
     output_dir = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     seeds = parse_seed_values(args.seeds)

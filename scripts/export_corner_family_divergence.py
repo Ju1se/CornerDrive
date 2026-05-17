@@ -27,6 +27,7 @@ from export_thesis_artifacts import (  # noqa: E402
     policy_with_recheck_probability,
     pretrain_initial_checkpoint,
     run_flpg_with_artifacts,
+    validate_synthetic_router_mode,
     write_csv,
     write_json,
 )
@@ -58,7 +59,7 @@ def parse_args() -> argparse.Namespace:
         "--l1-router-mode",
         type=str,
         default="cosine_recheck",
-        help="L1 router mode to use during the sweep.",
+        help="Synthetic ALG artifacts support cosine_recheck only.",
     )
     parser.add_argument(
         "--l1-queue-budget-ratio",
@@ -158,6 +159,7 @@ def trace_summary(trace_rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 def main() -> None:
     args = parse_args()
+    validate_synthetic_router_mode(args.l1_router_mode)
     rho_values = parse_float_values(args.rho_values)
     seeds = parse_seed_values(args.seeds)
 
