@@ -83,7 +83,7 @@ provides enough data.
 
 ### Quick thesis smoke check
 
-This regenerates the synthetic ALG main result, recheck sweep, and paper-facing CSV
+This regenerates the synthetic ALG main result, recheck sweep, and thesis CSV
 tables. It is the fastest thesis-critical check.
 
 ```bash
@@ -155,10 +155,10 @@ If FEMNIST is not prepared yet, run only the torchvision sources first:
 REAL_SOURCES=mnist,fashionmnist bash scripts/reproduce_all.sh real-gradient
 ```
 
-### Journal extension artifacts
+### Additional Experiments
 
-These are slower or more appendix-oriented than the core thesis reproduction,
-so they are explicit modes rather than part of the default `all` run.
+These runs are slower than the core thesis reproduction, so they are explicit
+modes rather than part of the default `all` run.
 
 ```bash
 bash scripts/reproduce_all.sh frontiers
@@ -168,8 +168,7 @@ bash scripts/reproduce_all.sh learning-curve
 `frontiers` regenerates the audit cost frontier and the real-gradient dev/test
 calibration split. `learning-curve` regenerates the 50-round end-to-end
 real-gradient FL proxy with five seeds by default. Override
-`LEARNING_CURVE_ROUNDS` and `LEARNING_CURVE_SEEDS` for larger journal-scale
-sweeps.
+`LEARNING_CURVE_ROUNDS` and `LEARNING_CURVE_SEEDS` for larger sweeps.
 
 ### Full reproduction
 
@@ -198,10 +197,10 @@ Representative expected values:
 
 See `results/expected_results.csv` for tolerances and source files.
 
-## Generate Paper Tables From Existing Results
+## Rebuild Result Tables
 
-If result CSVs already exist, regenerate paper-facing tables without rerunning
-the experiments:
+If result CSVs already exist, rebuild the thesis tables without rerunning the
+experiments:
 
 ```bash
 python scripts/make_paper_tables.py
@@ -223,7 +222,7 @@ Outputs are written to `artifacts/tables/`.
 | `configs` | thesis reproduction parameter manifests |
 | `data` | dataset instructions; generated data is ignored |
 | `results` | generated experiment outputs; mostly ignored |
-| `artifacts/tables` | regenerated paper-facing CSV tables |
+| `artifacts/tables` | regenerated thesis and appendix CSV tables |
 | `scripts` | data prep, reproduction, exporters, and table builders |
 | `docs` | architecture, formulas, reports, and benchmark notes |
 | `contracts` | Solidity settlement/policy commitment sources |
