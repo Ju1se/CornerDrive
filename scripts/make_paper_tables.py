@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build paper-facing CSV tables from CornerDrive reproduction outputs."""
+"""Build thesis CSV tables from CornerDrive reproduction outputs."""
 
 from __future__ import annotations
 
@@ -16,10 +16,19 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 METHOD_ORDER = ["Multi-Krum", "FLTrust", "Zeno", "Zeno++", "CornerDrive"]
+TABLE_OUTPUTS = [
+    "artifacts/tables/table_5_1_real_gradient_macro.csv",
+    "artifacts/tables/table_5_2_cornerdrive_real_gradient_by_dataset.csv",
+    "artifacts/tables/alg_main_result_table.csv",
+    "artifacts/tables/appendix_rarity_overlap.csv",
+    "artifacts/tables/appendix_proxy_sensitivity.csv",
+    "artifacts/tables/appendix_corner_family_divergence.csv",
+    "artifacts/tables/appendix_corner_harm_threshold_calibration.csv",
+]
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate thesis CSV tables.")
+    parser = argparse.ArgumentParser(description="Build thesis CSV tables.")
     parser.add_argument(
         "--real-dir",
         type=Path,
@@ -50,21 +59,137 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=PROJECT_ROOT / "artifacts" / "tables",
     )
+    parser.add_argument(
+        "--allow-missing-appendix",
+        action="store_true",
+        help=(
+            "Permit appendix-only source files to be absent. Missing appendix "
+            "outputs are removed instead of leaving stale CSVs."
+        ),
+    )
+    parser.add_argument(
+        "--allow-missing-real",
+        action="store_true",
+        help=(
+            "Permit real-gradient source files to be absent. Real-gradient table "
+            "outputs are removed instead of leaving stale CSVs."
+        ),
+    )
+    parser.add_argument(
+        "--allow-missing-synthetic",
+        action="store_true",
+        help=(
+            "Permit synthetic ALG source files to be absent. Synthetic table "
+            "outputs are removed instead of leaving stale CSVs."
+        ),
+    )
     return parser.parse_args()
+
+
+def display_path(path: Path) -> str:
+    try:
+        return str(path.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def table_inputs(args: argparse.Namespace) -> dict[str, tuple[Path, str]]:
+    """Return input paths and their table section."""
+
+    return {
+        "real_gradient_summary": (
+            args.real_dir / "real_gradient_reliability_summary.csv",
+            "real",
+        ),
+        "real_gradient_summary_json": (
+            args.real_dir / "real_gradient_reliability_summary.json",
+            "real",
+        ),
+        "synthetic_alg_main_result_table": (
+            args.synthetic_dir / "synthetic_alg_main_result_table.csv",
+            "synthetic",
+        ),
+        "stress_rarity_overlap": (
+            args.stress_dir / "stress_rarity_overlap_summary.csv",
+            "appendix",
+        ),
+        "stress_proxy_sensitivity": (
+            args.stress_dir / "stress_proxy_sensitivity_summary.csv",
+            "appendix",
+        ),
+        "corner_family_divergence": (
+            args.divergence_dir / "corner_family_divergence_summary.csv",
+            "appendix",
+        ),
+        "corner_harm_threshold_calibration": (
+            args.corner_harm_dir / "corner_harm_threshold_calibration_summary.csv",
+            "appendix",
+        ),
+    }
+
+
+def section_is_allowed_missing(args: argparse.Namespace, section: str) -> bool:
+    return (
+        (section == "real" and args.allow_missing_real)
+        or (section == "synthetic" and args.allow_missing_synthetic)
+        or (section == "appendix" and args.allow_missing_appendix)
+    )
+
+
+def csv_has_data_rows(path: Path) -> bool:
+    with path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.reader(handle)
+        try:
+            next(reader)
+        except StopIteration:
+            return False
+        return any(row for row in reader)
+
+
+def validate_inputs(args: argparse.Namespace) -> None:
+    errors: list[str] = []
+    for name, (path, section) in table_inputs(args).items():
+        must_exist = not section_is_allowed_missing(args, section)
+        if not path.exists():
+            if must_exist:
+                errors.append(f"{name}: missing {display_path(path)}")
+            continue
+        if path.suffix.lower() == ".csv" and not csv_has_data_rows(path):
+            if must_exist:
+                errors.append(f"{name}: empty CSV {display_path(path)}")
+        elif path.suffix.lower() == ".json":
+            try:
+                json.loads(path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                errors.append(f"{name}: invalid JSON {display_path(path)} ({exc})")
+    if errors:
+        joined = "\n- ".join(errors)
+        raise FileNotFoundError(
+            "Required table inputs are missing or empty; refusing to rebuild "
+            f"thesis tables from stale artifacts:\n- {joined}"
+        )
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
     if not path.exists():
-        print(f"skip missing input: {path.relative_to(PROJECT_ROOT)}")
+        print(f"skip missing input: {display_path(path)}")
         return []
     with path.open(newline="", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
 
 
-def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
+def write_csv(path: Path, rows: list[dict[str, Any]], *, allow_empty: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if not rows:
-        return
+        if path.exists():
+            path.unlink()
+            print(f"removed stale {display_path(path)}")
+        if allow_empty:
+            print(f"skip empty output: {display_path(path)}")
+            return
+        raise RuntimeError(f"Refusing to write empty thesis table: {display_path(path)}")
+    if path.exists():
+        path.unlink()
     fieldnames: list[str] = []
     for row in rows:
         for key in row:
@@ -74,7 +199,7 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
-    print(f"wrote {path.relative_to(PROJECT_ROOT)}")
+    print(f"wrote {display_path(path)}")
 
 
 def sha256_file(path: Path) -> str | None:
@@ -94,13 +219,12 @@ def read_json(path: Path) -> dict[str, Any]:
 
 
 def real_gradient_provenance(real_dir: Path) -> dict[str, Any]:
-    payload = read_json(real_dir / "real_gradient_reliability_summary.json")
+    summary_json = real_dir / "real_gradient_reliability_summary.json"
+    payload = read_json(summary_json)
     runs = payload.get("runs", [])
     first_config = runs[0].get("config", {}) if runs else {}
     return {
-        "summary_json": str(
-            (real_dir / "real_gradient_reliability_summary.json").relative_to(PROJECT_ROOT)
-        ),
+        "summary_json": display_path(summary_json),
         "sources": payload.get("sources", []),
         "seeds": payload.get("seeds", []),
         "methods": payload.get("methods", []),
@@ -127,42 +251,30 @@ def real_gradient_provenance(real_dir: Path) -> dict[str, Any]:
 
 
 def write_provenance(args: argparse.Namespace) -> None:
-    inputs = {
-        "real_gradient_summary": args.real_dir / "real_gradient_reliability_summary.csv",
-        "synthetic_alg_main_result_table": args.synthetic_dir / "synthetic_alg_main_result_table.csv",
-        "stress_rarity_overlap": args.stress_dir / "stress_rarity_overlap_summary.csv",
-        "stress_proxy_sensitivity": args.stress_dir / "stress_proxy_sensitivity_summary.csv",
-        "corner_family_divergence": args.divergence_dir / "corner_family_divergence_summary.csv",
-        "corner_harm_threshold_calibration": (
-            args.corner_harm_dir / "corner_harm_threshold_calibration_summary.csv"
-        ),
-    }
     payload = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "script": "scripts/make_paper_tables.py",
+        "strict_required_inputs": True,
+        "allow_missing_real": bool(args.allow_missing_real),
+        "allow_missing_synthetic": bool(args.allow_missing_synthetic),
+        "allow_missing_appendix": bool(args.allow_missing_appendix),
         "real_gradient_config": real_gradient_provenance(args.real_dir),
         "inputs": {
             key: {
-                "path": str(path.relative_to(PROJECT_ROOT)),
+                "path": display_path(path),
                 "sha256": sha256_file(path),
                 "exists": path.exists(),
+                "section": section,
+                "required": not section_is_allowed_missing(args, section),
             }
-            for key, path in inputs.items()
+            for key, (path, section) in table_inputs(args).items()
         },
-        "outputs": [
-            "artifacts/tables/table_5_1_real_gradient_macro.csv",
-            "artifacts/tables/table_5_2_cornerdrive_real_gradient_by_dataset.csv",
-            "artifacts/tables/alg_main_result_table.csv",
-            "artifacts/tables/appendix_rarity_overlap.csv",
-            "artifacts/tables/appendix_proxy_sensitivity.csv",
-            "artifacts/tables/appendix_corner_family_divergence.csv",
-            "artifacts/tables/appendix_corner_harm_threshold_calibration.csv",
-        ],
+        "outputs": TABLE_OUTPUTS,
     }
     args.output_dir.mkdir(parents=True, exist_ok=True)
     path = args.output_dir / "table_provenance.json"
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    print(f"wrote {path.relative_to(PROJECT_ROOT)}")
+    print(f"wrote {display_path(path)}")
 
 
 def f(row: dict[str, str], key: str, default: float = 0.0) -> float:
@@ -174,7 +286,7 @@ def pct(value: float) -> float:
     return round(100.0 * value, 4)
 
 
-def build_real_macro(real_dir: Path, output_dir: Path) -> None:
+def build_real_macro(real_dir: Path, output_dir: Path, *, allow_empty: bool = False) -> None:
     rows = read_csv(real_dir / "real_gradient_reliability_summary.csv")
     grouped: dict[str, list[dict[str, str]]] = defaultdict(list)
     for row in rows:
@@ -194,10 +306,15 @@ def build_real_macro(real_dir: Path, output_dir: Path) -> None:
                 "rarity_retention": round(mean(f(r, "rarity_retention_rate_avg_mean") for r in items), 4),
             }
         )
-    write_csv(output_dir / "table_5_1_real_gradient_macro.csv", out)
+    write_csv(output_dir / "table_5_1_real_gradient_macro.csv", out, allow_empty=allow_empty)
 
 
-def build_real_cornerdrive_by_dataset(real_dir: Path, output_dir: Path) -> None:
+def build_real_cornerdrive_by_dataset(
+    real_dir: Path,
+    output_dir: Path,
+    *,
+    allow_empty: bool = False,
+) -> None:
     rows = [
         row
         for row in read_csv(real_dir / "real_gradient_reliability_summary.csv")
@@ -219,10 +336,19 @@ def build_real_cornerdrive_by_dataset(real_dir: Path, output_dir: Path) -> None:
         }
         for row in rows
     ]
-    write_csv(output_dir / "table_5_2_cornerdrive_real_gradient_by_dataset.csv", out)
+    write_csv(
+        output_dir / "table_5_2_cornerdrive_real_gradient_by_dataset.csv",
+        out,
+        allow_empty=allow_empty,
+    )
 
 
-def build_alg_main(synthetic_alg_dir: Path, output_dir: Path) -> None:
+def build_alg_main(
+    synthetic_alg_dir: Path,
+    output_dir: Path,
+    *,
+    allow_empty: bool = False,
+) -> None:
     rows = read_csv(synthetic_alg_dir / "synthetic_alg_main_result_table.csv")
     out = [
         {
@@ -237,10 +363,10 @@ def build_alg_main(synthetic_alg_dir: Path, output_dir: Path) -> None:
         }
         for row in rows
     ]
-    write_csv(output_dir / "alg_main_result_table.csv", out)
+    write_csv(output_dir / "alg_main_result_table.csv", out, allow_empty=allow_empty)
 
 
-def build_stress_tables(stress_dir: Path, output_dir: Path) -> None:
+def build_stress_tables(stress_dir: Path, output_dir: Path, *, allow_empty: bool = False) -> None:
     rarity_rows = read_csv(stress_dir / "stress_rarity_overlap_summary.csv")
     write_csv(
         output_dir / "appendix_rarity_overlap.csv",
@@ -254,6 +380,7 @@ def build_stress_tables(stress_dir: Path, output_dir: Path) -> None:
             }
             for row in rarity_rows
         ],
+        allow_empty=allow_empty,
     )
 
     proxy_rows = read_csv(stress_dir / "stress_proxy_sensitivity_summary.csv")
@@ -270,10 +397,16 @@ def build_stress_tables(stress_dir: Path, output_dir: Path) -> None:
             }
             for row in proxy_rows
         ],
+        allow_empty=allow_empty,
     )
 
 
-def build_divergence_table(divergence_dir: Path, output_dir: Path) -> None:
+def build_divergence_table(
+    divergence_dir: Path,
+    output_dir: Path,
+    *,
+    allow_empty: bool = False,
+) -> None:
     rows = read_csv(divergence_dir / "corner_family_divergence_summary.csv")
     write_csv(
         output_dir / "appendix_corner_family_divergence.csv",
@@ -293,10 +426,16 @@ def build_divergence_table(divergence_dir: Path, output_dir: Path) -> None:
             }
             for row in rows
         ],
+        allow_empty=allow_empty,
     )
 
 
-def build_corner_harm_table(corner_harm_dir: Path, output_dir: Path) -> None:
+def build_corner_harm_table(
+    corner_harm_dir: Path,
+    output_dir: Path,
+    *,
+    allow_empty: bool = False,
+) -> None:
     rows = read_csv(corner_harm_dir / "corner_harm_threshold_calibration_summary.csv")
     write_csv(
         output_dir / "appendix_corner_harm_threshold_calibration.csv",
@@ -313,17 +452,43 @@ def build_corner_harm_table(corner_harm_dir: Path, output_dir: Path) -> None:
             }
             for row in rows
         ],
+        allow_empty=allow_empty,
     )
 
 
 def main() -> int:
     args = parse_args()
-    build_real_macro(args.real_dir, args.output_dir)
-    build_real_cornerdrive_by_dataset(args.real_dir, args.output_dir)
-    build_alg_main(args.synthetic_dir, args.output_dir)
-    build_stress_tables(args.stress_dir, args.output_dir)
-    build_divergence_table(args.divergence_dir, args.output_dir)
-    build_corner_harm_table(args.corner_harm_dir, args.output_dir)
+    validate_inputs(args)
+    build_real_macro(
+        args.real_dir,
+        args.output_dir,
+        allow_empty=args.allow_missing_real,
+    )
+    build_real_cornerdrive_by_dataset(
+        args.real_dir,
+        args.output_dir,
+        allow_empty=args.allow_missing_real,
+    )
+    build_alg_main(
+        args.synthetic_dir,
+        args.output_dir,
+        allow_empty=args.allow_missing_synthetic,
+    )
+    build_stress_tables(
+        args.stress_dir,
+        args.output_dir,
+        allow_empty=args.allow_missing_appendix,
+    )
+    build_divergence_table(
+        args.divergence_dir,
+        args.output_dir,
+        allow_empty=args.allow_missing_appendix,
+    )
+    build_corner_harm_table(
+        args.corner_harm_dir,
+        args.output_dir,
+        allow_empty=args.allow_missing_appendix,
+    )
     write_provenance(args)
     return 0
 

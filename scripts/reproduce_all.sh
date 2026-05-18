@@ -99,8 +99,8 @@ run_learning_curve() {
 }
 
 make_tables() {
-  echo "[CornerDrive] Building paper-facing CSV tables"
-  "${PYTHON_BIN}" scripts/make_paper_tables.py
+  echo "[CornerDrive] Building thesis CSV tables"
+  "${PYTHON_BIN}" scripts/make_paper_tables.py "$@"
 }
 
 usage() {
@@ -134,17 +134,17 @@ MODE="${1:-main}"
 case "${MODE}" in
   main)
     run_alg_main
-    make_tables
+    make_tables --allow-missing-real --allow-missing-appendix
     ;;
   appendix)
     run_stress
     run_divergence
     run_corner_harm_threshold
-    make_tables
+    make_tables --allow-missing-real --allow-missing-synthetic
     ;;
   real-gradient)
     run_real_gradient
-    make_tables
+    make_tables --allow-missing-synthetic --allow-missing-appendix
     ;;
   frontiers)
     run_frontiers
@@ -156,7 +156,7 @@ case "${MODE}" in
     run_real_gradient
     run_frontiers
     run_learning_curve
-    make_tables
+    make_tables --allow-missing-synthetic --allow-missing-appendix
     ;;
   all)
     run_real_gradient

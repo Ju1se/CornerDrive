@@ -15,7 +15,7 @@ examples. The practical benchmark route is therefore:
    attributes;
 2. keep client/update samples separate from server-side audit/reference samples
    and final evaluation samples;
-3. freeze a deterministic model checkpoint;
+3. start from a deterministic model checkpoint;
 4. compute per-client gradients from each client's real examples;
 5. inject only the adversarial transformations needed for security stress
    tests, while keeping honest and rarity gradients data-derived.
@@ -91,6 +91,9 @@ corner loss while introducing positive main-task drift above the stricter band
 as conflict or noise rather than clean rarity.
 The value was selected by a 20-seed threshold sweep as the largest tested
 zero-fraud setting before the FashionMNIST boundary case reappeared.
+The frozen calibration record is tracked in
+`configs/real_gradient_calibration_manifest.json`; its calibration seeds and
+final held-out seeds are disjoint.
 
 If LEAF data is not present, a real-sample fallback can derive gradients from
 torchvision MNIST or FashionMNIST:
@@ -198,11 +201,17 @@ The same held-out seeds produce this macro baseline comparison:
 ## Interpretation
 
 The benchmark reports FedAvg, GeoMed, Multi-Krum, FLTrust, Zeno, Zeno++, and
-CornerDrive on the same round schedule. FLTrust uses a root/reference gradient
-from the validation slice, Zeno uses validation-loss descent scoring, and
-Zeno++ uses the same score as a synchronous score-weighted benchmark variant.
-Core metrics are main accuracy, corner accuracy, fraud survival, rarity
-retention, and CornerDrive fraud/rarity precision and recall.
+CornerDrive on the same round schedule. Every method receives the same sampled
+clients and attack schedule in a given round, but each method maintains its own
+model state; gradients in later rounds are therefore computed against that
+method's current checkpoint. FLTrust uses a root/reference gradient from the
+validation slice, Zeno uses validation-loss descent scoring, and Zeno++ uses the
+same score as a synchronous score-weighted benchmark variant. Multi-Krum uses
+the configured attack fractions to estimate its Byzantine budget. These are
+controlled benchmark implementations of the baseline principles rather than
+full framework reproductions of every original paper. Core metrics are main
+accuracy, corner accuracy, fraud survival, rarity retention, and CornerDrive
+fraud/rarity precision and recall.
 
 For CornerDrive, the round records also include L1 diagnostics:
 `l1_router_mode`, `l1_suspect_total`, `l1_review_rate`, `l1_routing_reasons`,

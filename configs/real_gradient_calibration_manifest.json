@@ -1,0 +1,106 @@
+{
+  "profile": "real_gradient_calibrated",
+  "purpose": "Frozen calibration record for the real-gradient CornerDrive benchmark.",
+  "selected_policy": {
+    "theta_tol": 0.02,
+    "theta_rare": -0.005,
+    "theta_rarity_main_tol": 0.00925,
+    "cosine_filter_threshold": 0.5,
+    "recheck_probability": 0.25
+  },
+  "selected_l1_router": {
+    "mode": "dual_proxy_budgeted",
+    "cos_weight": 0.35,
+    "norm_weight": 0.2,
+    "sign_weight": 0.15,
+    "norm_mad_threshold": 1.5,
+    "sign_threshold": 0.4,
+    "sign_topk_ratio": 0.1,
+    "queue_budget_ratio": 0.8,
+    "random_recheck_ratio": 0.05,
+    "theta_corner_harm_proxy": 0.005,
+    "quarantine_risk_threshold": 0.75,
+    "low_weight_risk_threshold": 0.45,
+    "safe_weight": 0.8,
+    "low_weight": 0.2
+  },
+  "calibration": {
+    "seed_range": "20260507-20260526",
+    "seeds": [
+      20260507,
+      20260508,
+      20260509,
+      20260510,
+      20260511,
+      20260512,
+      20260513,
+      20260514,
+      20260515,
+      20260516,
+      20260517,
+      20260518,
+      20260519,
+      20260520,
+      20260521,
+      20260522,
+      20260523,
+      20260524,
+      20260525,
+      20260526
+    ],
+    "sources": [
+      "mnist",
+      "fashionmnist",
+      "femnist"
+    ],
+    "threshold_candidates": [
+      0.0085,
+      0.00925,
+      0.00935,
+      0.0095,
+      0.00975
+    ],
+    "selection_rule": "Choose the largest tested rarity-main tolerance that preserved zero observed fraud survival on calibration evidence before the FashionMNIST boundary case reappeared.",
+    "supporting_outputs": [
+      "results/real_gradient_ablation_v41_rarity_main_sweep_s20/real_gradient_rarity_main_sweep_s20_summary.csv",
+      "results/real_gradient_ablation_v41_rarity_main_000925_s20/"
+    ]
+  },
+  "final_heldout": {
+    "seed_range": "20260527-20260546",
+    "seeds": [
+      20260527,
+      20260528,
+      20260529,
+      20260530,
+      20260531,
+      20260532,
+      20260533,
+      20260534,
+      20260535,
+      20260536,
+      20260537,
+      20260538,
+      20260539,
+      20260540,
+      20260541,
+      20260542,
+      20260543,
+      20260544,
+      20260545,
+      20260546
+    ],
+    "sources": [
+      "mnist",
+      "fashionmnist",
+      "femnist"
+    ],
+    "result_dir": "results/real_gradient_reliability_calibrated_holdout",
+    "retuning_allowed": false
+  },
+  "audit_notes": [
+    "Calibration and final held-out seed sets are disjoint.",
+    "The final held-out run must report the frozen selected_policy values above.",
+    "Future threshold changes should create a new calibration manifest and a new held-out seed range."
+  ]
+}

@@ -35,7 +35,11 @@ from l1_linear_defense.aggregation import (  # noqa: E402
     filter_suspects,
     geometric_median,
 )
-from l1_linear_defense.config import L1RouterConfig, make_l1_router_config  # noqa: E402
+from l1_linear_defense.config import (  # noqa: E402
+    L1RouterConfig,
+    make_l1_router_config,
+    normalize_l1_mode,
+)
 from policy_agent.analysis.unified_benchmark import (  # noqa: E402
     BENCHMARK_PHASE_CYCLE,
     PRETRAIN_SEED,
@@ -58,6 +62,12 @@ from policy_agent.engine.rule_engine import RuleEngine  # noqa: E402
 
 THETA_CORNER_HARM_PROXY = 0.0
 THETA_CORNER_HARM_SOURCE = "analysis_proxy_not_runtime_policy"
+SYNTHETIC_ROUTER_GUARD_MESSAGE = (
+    "Synthetic ALG artifact exporters only support cosine_recheck routing. "
+    "dual_proxy_budgeted uses quarantine/low-weight aggregation semantics that "
+    "are validated in the real-gradient benchmark path; enabling it here would "
+    "produce misleading synthetic reproduction tables."
+)
 
 
 @dataclass
@@ -98,7 +108,7 @@ def parse_args() -> argparse.Namespace:
         "--l1-router-mode",
         type=str,
         default="cosine_recheck",
-        help="L1 router mode: cosine_recheck or dual_proxy_budgeted.",
+        help="Synthetic ALG artifacts support cosine_recheck only.",
     )
     parser.add_argument(
         "--l1-queue-budget-ratio",
@@ -120,6 +130,11 @@ def parse_args() -> argparse.Namespace:
         default=PROJECT_ROOT / "results" / "thesis_artifacts",
     )
     return parser.parse_args()
+
+
+def validate_synthetic_router_mode(raw_mode: str | None) -> None:
+    if normalize_l1_mode(raw_mode) != "cosine_recheck":
+        raise SystemExit(SYNTHETIC_ROUTER_GUARD_MESSAGE)
 
 
 def update_l1_client_state(
@@ -952,6 +967,7 @@ def build_summary_metrics(
 
 def main() -> int:
     args = parse_args()
+    validate_synthetic_router_mode(args.l1_router_mode)
     output_dir = args.output_dir
 
     reference_policy = clone_policy(DEFAULT_POLICY)

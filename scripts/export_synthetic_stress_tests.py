@@ -34,6 +34,7 @@ from export_thesis_artifacts import (  # noqa: E402
     policy_with_recheck_probability,
     pretrain_initial_checkpoint,
     run_flpg_with_artifacts,
+    validate_synthetic_router_mode,
     write_csv,
     write_json,
 )
@@ -78,7 +79,7 @@ def parse_args() -> argparse.Namespace:
         "--l1-router-mode",
         type=str,
         default="cosine_recheck",
-        help="L1 router mode: cosine_recheck or dual_proxy_budgeted.",
+        help="Synthetic ALG artifacts support cosine_recheck only.",
     )
     parser.add_argument(
         "--l1-queue-budget-ratio",
@@ -701,6 +702,7 @@ def run_threshold_stress(
 
 def main() -> int:
     args = parse_args()
+    validate_synthetic_router_mode(args.l1_router_mode)
     output_dir = args.output_dir
     experiments = {part.strip() for part in args.experiments.split(",") if part.strip()}
     seed_values = parse_seed_values(args.seeds)
