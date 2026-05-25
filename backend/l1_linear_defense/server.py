@@ -7,6 +7,7 @@ import asyncio
 import json
 import logging
 import math
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -15,6 +16,15 @@ import numpy as np
 import redis
 from fastapi import FastAPI, HTTPException, Request, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    CollectorRegistry,
+    Counter,
+    Gauge,
+    Histogram,
+    generate_latest,
+)
 from pydantic import BaseModel, Field, field_validator
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -54,6 +64,69 @@ app.add_middleware(
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Prometheus metrics use a module-local registry to avoid duplicate collectors
+# when tests import several FastAPI apps in the same Python process.
+METRICS_REGISTRY = CollectorRegistry()
+HTTP_REQUESTS_TOTAL = Counter(
+    "l1_http_requests_total",
+    "Total L1 HTTP requests.",
+    ["method", "path", "status"],
+    registry=METRICS_REGISTRY,
+)
+HTTP_REQUEST_DURATION_SECONDS = Histogram(
+    "l1_http_request_duration_seconds",
+    "L1 HTTP request duration in seconds.",
+    ["method", "path"],
+    registry=METRICS_REGISTRY,
+)
+BATCHES_PROCESSED_TOTAL = Counter(
+    "l1_batches_processed_total",
+    "Total number of L1 gradient batches processed.",
+    registry=METRICS_REGISTRY,
+)
+CLEAN_GRADIENTS_TOTAL = Counter(
+    "l1_clean_gradients_total",
+    "Total number of gradients accepted by L1.",
+    registry=METRICS_REGISTRY,
+)
+SUSPECT_GRADIENTS_TOTAL = Counter(
+    "l1_suspect_gradients_total",
+    "Total number of gradients routed to L2 by L1.",
+    registry=METRICS_REGISTRY,
+)
+PENDING_GRADIENTS = Gauge(
+    "l1_pending_gradients",
+    "Number of gradients currently waiting in the L1 batcher.",
+    registry=METRICS_REGISTRY,
+)
+REDIS_AVAILABLE = Gauge(
+    "l1_redis_available",
+    "Whether Redis is reachable from the L1 service.",
+    registry=METRICS_REGISTRY,
+)
+
+
+@app.middleware("http")
+async def record_http_metrics(request: Request, call_next):
+    start_time = time.perf_counter()
+    status_code = 500
+
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        path = request.scope.get("path", request.url.path)
+        HTTP_REQUESTS_TOTAL.labels(
+            method=request.method,
+            path=path,
+            status=str(status_code),
+        ).inc()
+        HTTP_REQUEST_DURATION_SECONDS.labels(
+            method=request.method,
+            path=path,
+        ).observe(time.perf_counter() - start_time)
 
 # Redis client
 try:
@@ -150,6 +223,7 @@ class GradientBatcher:
         async with self.lock:
             self.gradients.append(gradient)
             self.vehicle_ids.append(vehicle_id)
+            PENDING_GRADIENTS.set(len(self.gradients))
 
             if len(self.gradients) >= self.batch_size:
                 await self._process_batch()
@@ -230,10 +304,14 @@ class GradientBatcher:
             dispatch_l2_audit(suspect_data)
 
         logger.info(f"Batch processed: {len(result.clean_indices)} clean, {len(result.suspect_indices)} suspects")
+        BATCHES_PROCESSED_TOTAL.inc()
+        CLEAN_GRADIENTS_TOTAL.inc(len(result.clean_indices))
+        SUSPECT_GRADIENTS_TOTAL.inc(len(result.suspect_indices))
 
         # Clear batch
         self.gradients = []
         self.vehicle_ids = []
+        PENDING_GRADIENTS.set(0)
 
 
 # Global batcher instance
@@ -281,12 +359,15 @@ async def health_check():
         try:
             redis_client.ping()
             checks["redis"] = "connected"
+            REDIS_AVAILABLE.set(1)
         except Exception as e:
             checks["redis"] = f"error: {str(e)}"
             status = "degraded"
+            REDIS_AVAILABLE.set(0)
     else:
         checks["redis"] = "not_available"
         status = "degraded"
+        REDIS_AVAILABLE.set(0)
 
     checks["batcher"] = "ready"
 
@@ -386,6 +467,10 @@ async def process_batch_now(
         }
         dispatch_l2_audit(suspect_data)
 
+    BATCHES_PROCESSED_TOTAL.inc()
+    CLEAN_GRADIENTS_TOTAL.inc(len(result.clean_indices))
+    SUSPECT_GRADIENTS_TOTAL.inc(len(result.suspect_indices))
+
     return BatchResult(
         total=len(gradients),
         clean=len(result.clean_indices),
@@ -398,8 +483,10 @@ async def process_batch_now(
 @app.get("/metrics")
 async def get_metrics():
     """Prometheus metrics endpoint."""
-    # TODO: Implement prometheus_client metrics
-    return {"message": "Metrics endpoint"}
+    return Response(
+        content=generate_latest(METRICS_REGISTRY),
+        media_type=CONTENT_TYPE_LATEST,
+    )
 
 
 if __name__ == "__main__":

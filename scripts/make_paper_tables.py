@@ -7,6 +7,9 @@ import argparse
 import csv
 import hashlib
 import json
+import platform
+import subprocess
+import sys
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -212,6 +215,37 @@ def sha256_file(path: Path) -> str | None:
     return digest.hexdigest()
 
 
+def project_file_metadata(relative_path: str) -> dict[str, Any]:
+    path = PROJECT_ROOT / relative_path
+    return {
+        "path": relative_path,
+        "exists": path.exists(),
+        "sha256": sha256_file(path),
+    }
+
+
+def git_output(*args: str) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=PROJECT_ROOT,
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return result.stdout.strip()
+
+
+def git_dirty() -> bool | None:
+    status = git_output("status", "--short")
+    if status is None:
+        return None
+    return bool(status)
+
+
 def read_json(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
@@ -255,6 +289,31 @@ def write_provenance(args: argparse.Namespace) -> None:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "script": "scripts/make_paper_tables.py",
         "strict_required_inputs": True,
+        "runtime": {
+            "python_version": sys.version.split()[0],
+            "platform": platform.platform(),
+            "git_head": git_output("rev-parse", "HEAD"),
+            "git_dirty": git_dirty(),
+        },
+        "dependency_files": {
+            path: project_file_metadata(path)
+            for path in [
+                "requirements.txt",
+                "environment.yml",
+                "frontend/package-lock.json",
+                "contracts/package-lock.json",
+            ]
+        },
+        "config_files": {
+            path: project_file_metadata(path)
+            for path in [
+                "configs/synthetic_alg.yaml",
+                "configs/stress_tests.yaml",
+                "configs/real_gradient_reliability.yaml",
+                "configs/real_gradient_calibration_manifest.json",
+                "results/expected_results.csv",
+            ]
+        },
         "allow_missing_real": bool(args.allow_missing_real),
         "allow_missing_synthetic": bool(args.allow_missing_synthetic),
         "allow_missing_appendix": bool(args.allow_missing_appendix),

@@ -162,6 +162,96 @@ def test_make_paper_tables_removes_stale_allowed_missing_outputs(tmp_path):
     assert provenance["inputs"]["stress_rarity_overlap"]["exists"] is False
 
 
+def test_expected_results_checker_accepts_values_within_tolerance(tmp_path):
+    source = tmp_path / "source.csv"
+    _write_csv(
+        source,
+        [
+            {
+                "method": "CornerDrive",
+                "fraud_survival": 0.0105,
+            }
+        ],
+    )
+    manifest = tmp_path / "expected.csv"
+    _write_csv(
+        manifest,
+        [
+            {
+                "paper_item": "Table 5.1",
+                "method_or_setting": "CornerDrive",
+                "metric": "fraud_survival",
+                "expected_value": 0.01,
+                "tolerance": 0.001,
+                "source_file": str(source),
+            }
+        ],
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/check_expected_results.py",
+            "--expected",
+            str(manifest),
+            "--project-root",
+            str(PROJECT_ROOT),
+        ],
+        cwd=PROJECT_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "All 1 expected-result check(s) passed" in result.stdout
+
+
+def test_expected_results_checker_fails_out_of_tolerance(tmp_path):
+    source = tmp_path / "source.csv"
+    _write_csv(
+        source,
+        [
+            {
+                "setting": "baseline_outlier",
+                "rarity_recognition_percent": 73.65,
+            }
+        ],
+    )
+    manifest = tmp_path / "expected.csv"
+    _write_csv(
+        manifest,
+        [
+            {
+                "paper_item": "Table A.7",
+                "method_or_setting": "baseline_outlier",
+                "metric": "rarity_recognition_percent",
+                "expected_value": 100.0,
+                "tolerance": 0.01,
+                "source_file": str(source),
+            }
+        ],
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/check_expected_results.py",
+            "--expected",
+            str(manifest),
+            "--project-root",
+            str(PROJECT_ROOT),
+        ],
+        cwd=PROJECT_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 1
+    assert "expected-result check(s) failed" in result.stdout
+
+
 def test_calibration_manifest_keeps_calibration_and_heldout_disjoint():
     manifest = json.loads(
         (PROJECT_ROOT / "configs" / "real_gradient_calibration_manifest.json").read_text()

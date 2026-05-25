@@ -27,7 +27,8 @@ environment, run the documented commands, and regenerate the main thesis tables.
 | Real-gradient dev/test calibration split | `results/real_gradient_calibration_split/real_gradient_calibration_split_summary.csv` |
 | 50-round real-gradient FL learning curve | `results/real_gradient_learning_curve/real_gradient_learning_curve.svg` |
 
-The compact expected-value manifest is `results/expected_results.csv`.
+The compact expected-value manifest is `results/expected_results.csv`. The
+reviewer protocol and audit checklist are in `docs/REPRODUCIBILITY_AUDIT.md`.
 
 ## Environment
 
@@ -195,14 +196,19 @@ Representative expected values:
 | Real-gradient calibrated CornerDrive macro fraud survival | 0.0013 |
 | Real-gradient calibrated CornerDrive macro rarity retention | 0.3767 |
 | Real-gradient calibrated CornerDrive macro corner accuracy | 0.7130 |
-| ALG CornerDrive p=0.10 main accuracy | 85.58% ± 0.55 |
-| ALG CornerDrive p=0.10 corner accuracy | 61.24% ± 0.53 |
+| ALG CornerDrive p=0.10 main accuracy | 87.32% ± 0.30 |
+| ALG CornerDrive p=0.10 corner accuracy | 58.25% ± 0.51 |
 | ALG CornerDrive p=0.10 sign-flip survival | 0.00% ± 0.00 |
 | ALG CornerDrive p=0.10 corner-harm survival | 84.00% ± 5.48 |
-| Rarity-overlap baseline recognition | 100.00% |
+| Rarity-overlap baseline recognition | 73.66% |
 | Random main proxy rarity recognition | 0.00% |
 
 See `results/expected_results.csv` for tolerances and source files.
+Validate the generated tables against those tolerances with:
+
+```bash
+python scripts/check_expected_results.py
+```
 
 ## Rebuild Result Tables
 
@@ -235,14 +241,26 @@ Outputs are written to `artifacts/tables/`.
 | `data` | dataset instructions; generated data is ignored |
 | `results` | generated experiment outputs; mostly ignored |
 | `artifacts/tables` | regenerated thesis and appendix CSV tables |
-| `scripts` | data prep, reproduction, exporters, and table builders |
+| `scripts` | data prep, reproduction, exporters, and table builders; see `scripts/README.md` |
 | `docs` | architecture, formulas, reports, and benchmark notes |
 | `contracts` | Solidity settlement/policy commitment sources |
 | `frontend` | React dashboard for the full FLPG demo |
 
 ## Tests
 
-Run the core tests used for the reproduction sanity check:
+Run the full local verification suite when dependencies are already installed:
+
+```bash
+bash scripts/verify_all.sh
+```
+
+For a fresh clone, install missing Python and npm dependencies first:
+
+```bash
+bash scripts/verify_all.sh --install
+```
+
+Run the core backend tests used for the reproduction sanity check:
 
 ```bash
 python -m pytest \
@@ -251,6 +269,18 @@ python -m pytest \
   backend/tests/test_real_gradient_bdd100k.py \
   -q
 ```
+
+## Optional Monitoring
+
+The Docker Compose monitoring profile starts Prometheus and Grafana with the
+tracked provisioning files under `monitoring/`:
+
+```bash
+docker compose --profile monitoring up -d prometheus grafana
+```
+
+Prometheus scrapes L1, L4, and the policy agent through their `/metrics`
+endpoints. Grafana is available at `http://localhost:3001`.
 
 ## Notes on Baselines and Ablations
 

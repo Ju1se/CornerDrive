@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""
-Lightweight verification for the current FLPG project layout.
+"""Lightweight verification for the current CornerDrive project layout.
 
 This script avoids importing heavy runtime dependencies and instead verifies:
 1. Expected source files exist
 2. Python modules compile syntactically
 3. Frontend and contract entrypoints are present
+
+For full verification before sharing/submission, use:
+
+    bash scripts/verify_all.sh
 """
 
 from __future__ import annotations
@@ -35,7 +38,15 @@ REQUIRED_FILES = [
     "contracts/scripts/deploy.js",
     "contracts/scripts/deploy_policy_registry.js",
     "docker-compose.yml",
+    ".github/workflows/ci.yml",
+    "monitoring/prometheus.yml",
     "scripts/generate_demo_data.py",
+    "scripts/verify_all.sh",
+    "scripts/check_expected_results.py",
+    "docs/REPRODUCIBILITY_AUDIT.md",
+    "results/expected_results.csv",
+    "configs/real_gradient_calibration_manifest.json",
+    "artifacts/tables/table_provenance.json",
 ]
 
 
@@ -54,6 +65,7 @@ PYTHON_FILES = [
     "backend/policy_agent/main.py",
     "backend/policy_agent/api/routes_policy.py",
     "backend/policy_agent/tasks/round_close.py",
+    "scripts/check_expected_results.py",
 ]
 
 

@@ -12,3 +12,12 @@ Expected generated files include:
 - `appendix_corner_family_divergence.csv`
 - `appendix_corner_harm_threshold_calibration.csv`
 - `table_provenance.json`
+
+After rebuilding, run:
+
+```bash
+python scripts/check_expected_results.py
+```
+
+The checker compares the generated tables with the tolerance manifest at
+`results/expected_results.csv`.

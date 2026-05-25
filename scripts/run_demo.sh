@@ -13,8 +13,17 @@ readonly REDIS_STATE_DIR="$STATE_DIR/redis"
 readonly GANACHE_STATE_DIR="$STATE_DIR/ganache"
 readonly ENV_FILE="$PROJECT_ROOT/.env"
 readonly GENERATOR_SCRIPT="$SCRIPT_DIR/generate_demo_data.py"
-readonly PYTHON_BIN="$BACKEND_DIR/venv/bin/python"
-readonly CELERY_BIN="$BACKEND_DIR/venv/bin/celery"
+
+if [[ -x "$BACKEND_DIR/venv/bin/python" ]]; then
+    readonly PYTHON_BIN="$BACKEND_DIR/venv/bin/python"
+    readonly CELERY_BIN="$BACKEND_DIR/venv/bin/celery"
+elif [[ -x "$PROJECT_ROOT/.venv/bin/python" ]]; then
+    readonly PYTHON_BIN="$PROJECT_ROOT/.venv/bin/python"
+    readonly CELERY_BIN="$PROJECT_ROOT/.venv/bin/celery"
+else
+    echo "Python virtual environment not found. Run ./scripts/setup.sh first." >&2
+    exit 1
+fi
 
 mkdir -p "$LOG_DIR"
 mkdir -p "$REDIS_STATE_DIR" "$GANACHE_STATE_DIR"
