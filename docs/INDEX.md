@@ -9,6 +9,9 @@ Use the root `README.md` for quick onboarding. Use the documents here for archit
 - [Project README](../README.md) - quick start, repository map, and primary navigation
 - [Implementation Guide](implementation/IMPLEMENTATION.md) - what is currently implemented and how to run it locally
 - [Ports and APIs](api/PORTS_AND_APIS.md) - canonical service ports and endpoint paths
+- [Scripts Index](../scripts/README.md) - canonical, diagnostic, and legacy command-line entry points
+- [Maintenance Audit](MAINTENANCE_AUDIT.md) - repository hygiene findings and cleanup rules
+- [Reproducibility Audit](REPRODUCIBILITY_AUDIT.md) - reviewer protocol, result checks, and remaining reproducibility risks
 
 ## Architecture
 
@@ -25,6 +28,8 @@ Use the root `README.md` for quick onboarding. Use the documents here for archit
 ## Implementation Notes
 
 - [Implementation Guide](implementation/IMPLEMENTATION.md)
+- [Maintenance Audit](MAINTENANCE_AUDIT.md)
+- [Reproducibility Audit](REPRODUCIBILITY_AUDIT.md)
 - [L1/L2 Operating-Curve Benchmark](benchmarks/L1_L2_OPERATING_CURVE.md)
 - [Real-Data Gradient Benchmark](benchmarks/REAL_GRADIENT_BENCHMARK.md)
 - [Real-Gradient Calibration Split](benchmarks/REAL_GRADIENT_CALIBRATION_SPLIT.md)
@@ -37,8 +42,15 @@ Use the root `README.md` for quick onboarding. Use the documents here for archit
 
 ## Reports
 
+- [Reports Index](reports/README.md)
 - [Synthetic ALG Code Audit and Cleanup](reports/SYNTHETIC_ALG_CODE_AUDIT_AND_CLEANUP.md)
 - [Legacy Reports](reports/legacy/README.md) - historical notes only, not current thesis evidence
+
+## Operations
+
+- [Scripts Index](../scripts/README.md)
+- [Ports and APIs](api/PORTS_AND_APIS.md)
+- [Implementation Guide](implementation/IMPLEMENTATION.md)
 
 ## Documentation Rules
 
@@ -46,3 +58,4 @@ Use the root `README.md` for quick onboarding. Use the documents here for archit
 - Canonical HTTP paths live in `docs/api/`.
 - Layer behavior and design rationale live in `docs/architecture/`.
 - Operational setup and implementation status live in `docs/implementation/`.
+- New scripts and dated reports should be added to their local index files.

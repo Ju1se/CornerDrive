@@ -9,4 +9,5 @@ Suggested workflow:
 bash scripts/reproduce_all.sh main
 bash scripts/reproduce_all.sh appendix
 python scripts/make_paper_tables.py
+python scripts/check_expected_results.py
 ```

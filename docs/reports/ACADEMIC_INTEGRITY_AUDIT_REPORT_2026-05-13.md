@@ -4,6 +4,14 @@
 > earlier same-surface benchmark. The reviewer-facing held-out split fix and
 > updated real-gradient table are documented in
 > `docs/reports/REVIEWER_AUDIT_FIXES_2026-05-15.md`.
+>
+> Maintenance note (2026-05-25): this historical report also refers to older
+> `export_v25_*` script names. Current synthetic reproduction goes through
+> `scripts/reproduce_all.sh main` or `scripts/export_synthetic_alg_benchmark.py`;
+> see `scripts/README.md`. Historical synthetic numbers in this report are not
+> the current expected-value contract; use `results/expected_results.csv`,
+> `artifacts/tables/`, and `scripts/check_expected_results.py` for the current
+> reproducibility check.
 
 审计日期：2026-05-13
 审计对象：
@@ -53,11 +61,14 @@ Downloads PDF metadata：58 pages，created/modified `2026-05-13 11:17:36 CST`�
 
 ### 3.1 ALG/V2.5 主结果，thesis-matching 命令
 
+Maintenance note: the original audit used older `export_v25_*` script names.
+The current equivalent exporter is `export_synthetic_alg_benchmark.py`.
+
 ```bash
-BATCH_SIZE=24 VEHICLE_POOL_SIZE=128 ./.venv/bin/python scripts/export_v25_artifacts.py \
+BATCH_SIZE=24 VEHICLE_POOL_SIZE=128 ./.venv/bin/python scripts/export_synthetic_alg_benchmark.py \
   --seeds 20260318,20260319,20260320,20260321,20260322 \
   --recheck-values 0.00,0.05,0.10,0.20,0.30 \
-  --output-dir results/audit_reproduction/v25_artifacts_b24
+  --output-dir results/audit_reproduction/synthetic_alg_benchmark_b24
 ```
 
 输出配置确认：
@@ -70,10 +81,10 @@ BATCH_SIZE=24 VEHICLE_POOL_SIZE=128 ./.venv/bin/python scripts/export_v25_artifa
 ### 3.2 stress tests
 
 ```bash
-BATCH_SIZE=24 VEHICLE_POOL_SIZE=128 ./.venv/bin/python scripts/export_v25_stress_tests.py \
+BATCH_SIZE=24 VEHICLE_POOL_SIZE=128 ./.venv/bin/python scripts/export_synthetic_stress_tests.py \
   --seeds 20260318,20260319,20260320,20260321,20260322 \
   --threshold-seeds 20260318,20260319,20260320,20260321,20260322 \
-  --output-dir results/audit_reproduction/v25_stress_tests_b24
+  --output-dir results/audit_reproduction/synthetic_stress_tests_b24
 ```
 
 ### 3.3 corner-family divergence
@@ -319,7 +330,7 @@ hard-mixed, `p_recheck=0.50`：
 
 ### 7.3 ALG truth label 的用途
 
-ALG generator 使用 archetype truth 是为了构造受控 benchmark 和统计指标。`export_v25_artifacts.py` 汇总的是重新运行后生成的 L1/L2 rows，并非直接把 thesis 表格写入结果。`build_update_confusion_matrix`、`build_rarity_recognition_retention_rows`、`build_audit_oracle_consistency_rows` 从 raw rows 生成汇总表，见 `scripts/export_v25_artifacts.py:1210` 至 `1224`。
+ALG generator 使用 archetype truth 是为了构造受控 benchmark 和统计指标。当前 `scripts/export_synthetic_alg_benchmark.py` 汇总的是重新运行后生成的 L1/L2 rows，并非直接把 thesis 表格写入结果。`build_update_confusion_matrix`、`build_rarity_recognition_retention_rows`、`build_audit_oracle_consistency_rows` 从 raw rows 生成汇总表。
 
 ### 7.4 Real-gradient 的边界
 
@@ -346,20 +357,22 @@ VEHICLE_POOL_SIZE = max(128, BATCH_SIZE * 4)            # 384
 审计时的 README 命令没有设置这两个环境变量：
 
 ```bash
-python scripts/export_v25_artifacts.py --rounds 24 --cycle-rounds 12 --pretrain-epochs 5 --output-dir results/v25_artifacts
+python scripts/export_synthetic_alg_benchmark.py \
+  --seeds 20260318,20260319,20260320,20260321,20260322 \
+  --recheck-values 0.00,0.05,0.10,0.20,0.30 \
+  --output-dir results/audit_reproduction/synthetic_alg_benchmark_b24
 ```
 
 实际审计中，不设置 env var 会生成另一组规模的结果，不能复现 thesis。repo hygiene pass 已把顶层 README 和 `scripts/reproduce_all.sh` 改为显式使用 thesis scale。等价命令为：
 
 ```bash
-BATCH_SIZE=24 VEHICLE_POOL_SIZE=128 python scripts/export_v25_artifacts.py \
-  --rounds 24 --cycle-rounds 12 --pretrain-epochs 5 \
+BATCH_SIZE=24 VEHICLE_POOL_SIZE=128 python scripts/export_synthetic_alg_benchmark.py \
   --seeds 20260318,20260319,20260320,20260321,20260322 \
   --recheck-values 0.00,0.05,0.10,0.20,0.30 \
-  --output-dir results/v25_artifacts
+  --output-dir results/audit_reproduction/synthetic_alg_benchmark_b24
 ```
 
-后续更稳妥的工程修复仍然建议给 `export_v25_artifacts.py`、stress、divergence、threshold calibration 脚本增加显式 CLI 参数，例如 `--batch-size` 和 `--vehicle-pool-size`，进一步减少隐藏环境变量。
+后续更稳妥的工程修复仍然建议给 synthetic、stress、divergence、threshold calibration 脚本增加显式 CLI 参数，例如 `--batch-size` 和 `--vehicle-pool-size`，进一步减少隐藏环境变量。
 
 ### R2. 结果文件未纳入可审计归档
 

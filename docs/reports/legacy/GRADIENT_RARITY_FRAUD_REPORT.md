@@ -2,8 +2,9 @@
 
 > Legacy note: this report predates the V2.5 benchmark cleanup. It is retained
 > only as historical design context. Do not use its numeric claims or blind-spot
-> statements for Chapter 4; use `docs/reports/V25_CODE_AUDIT_AND_CLEANUP.md`
-> and `results/v25_artifacts/` instead.
+> statements for Chapter 4; use `docs/reports/SYNTHETIC_ALG_CODE_AUDIT_AND_CLEANUP.md`,
+> `docs/reports/REVIEWER_AUDIT_FIXES_2026-05-15.md`, and `artifacts/tables/`
+> instead.
 
 ## 摘要
 

@@ -103,9 +103,14 @@ make_tables() {
   "${PYTHON_BIN}" scripts/make_paper_tables.py "$@"
 }
 
+check_expected() {
+  echo "[CornerDrive] Checking expected result tolerances"
+  "${PYTHON_BIN}" scripts/check_expected_results.py
+}
+
 usage() {
   cat <<'EOF'
-Usage: bash scripts/reproduce_all.sh [main|appendix|real-gradient|frontiers|learning-curve|journal|all|tables]
+Usage: bash scripts/reproduce_all.sh [main|appendix|real-gradient|frontiers|learning-curve|journal|all|tables|check]
 
 Modes:
   main          Reproduce synthetic ALG main result and recheck tables.
@@ -115,8 +120,9 @@ Modes:
   learning-curve
                 Reproduce the 50-round real-gradient FL learning curve.
   journal       Run real-gradient, frontiers, learning-curve, then build tables.
-  all           Run real-gradient, main, appendix, then build CSV tables.
+  all           Run real-gradient, main, appendix, build CSV tables, then check tolerances.
   tables        Build artifacts/tables/*.csv from existing results.
+  check         Validate artifacts/tables/*.csv against results/expected_results.csv.
 
 Environment overrides:
   PYTHON=.venv/bin/python
@@ -165,9 +171,13 @@ case "${MODE}" in
     run_divergence
     run_corner_harm_threshold
     make_tables
+    check_expected
     ;;
   tables)
     make_tables
+    ;;
+  check)
+    check_expected
     ;;
   -h|--help|help)
     usage

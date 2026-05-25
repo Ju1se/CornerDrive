@@ -6,5 +6,7 @@ be used as current thesis evidence.
 
 Current evidence entry points:
 
-- `docs/reports/V25_CODE_AUDIT_AND_CLEANUP.md`
-- `results/v25_artifacts/`
+- `docs/reports/README.md`
+- `docs/reports/SYNTHETIC_ALG_CODE_AUDIT_AND_CLEANUP.md`
+- `docs/reports/REVIEWER_AUDIT_FIXES_2026-05-15.md`
+- `artifacts/tables/`

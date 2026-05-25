@@ -6,13 +6,23 @@ Provides analytics and management interface for FLPG system.
 import hashlib
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import redis
-from fastapi import FastAPI, HTTPException, Query, Security
+from fastapi import FastAPI, HTTPException, Query, Request, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    CollectorRegistry,
+    Counter,
+    Gauge,
+    Histogram,
+    generate_latest,
+)
 from pydantic import BaseModel
 from web3 import Web3
 
@@ -47,6 +57,85 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Keep L4 metrics isolated from other FastAPI apps imported during tests.
+METRICS_REGISTRY = CollectorRegistry()
+HTTP_REQUESTS_TOTAL = Counter(
+    "l4_http_requests_total",
+    "Total L4 HTTP requests.",
+    ["method", "path", "status"],
+    registry=METRICS_REGISTRY,
+)
+HTTP_REQUEST_DURATION_SECONDS = Histogram(
+    "l4_http_request_duration_seconds",
+    "L4 HTTP request duration in seconds.",
+    ["method", "path"],
+    registry=METRICS_REGISTRY,
+)
+AUDIT_CLASSIFICATION_TOTAL = Gauge(
+    "l4_audit_classification_total",
+    "Current audit classification counts visible to L4.",
+    ["classification"],
+    registry=METRICS_REGISTRY,
+)
+TOTAL_VEHICLES = Gauge(
+    "l4_total_vehicles",
+    "Current number of vehicles known to L4.",
+    registry=METRICS_REGISTRY,
+)
+TOTAL_REWARDS = Gauge(
+    "l4_total_rewards",
+    "Current total rewards visible to L4.",
+    registry=METRICS_REGISTRY,
+)
+TOTAL_SLASHED = Gauge(
+    "l4_total_slashed",
+    "Current total slashed amount visible to L4.",
+    registry=METRICS_REGISTRY,
+)
+SETTLEMENT_REQUESTS_TOTAL = Counter(
+    "l4_settlement_requests_total",
+    "Total L4 settlement requests by outcome.",
+    ["status"],
+    registry=METRICS_REGISTRY,
+)
+REDIS_AVAILABLE = Gauge(
+    "l4_redis_available",
+    "Whether Redis is reachable from the L4 service.",
+    registry=METRICS_REGISTRY,
+)
+BLOCKCHAIN_AVAILABLE = Gauge(
+    "l4_blockchain_available",
+    "Whether the configured blockchain RPC is reachable from L4.",
+    registry=METRICS_REGISTRY,
+)
+CONTRACT_AVAILABLE = Gauge(
+    "l4_contract_available",
+    "Whether the configured FLPGAudit contract is available to L4.",
+    registry=METRICS_REGISTRY,
+)
+
+
+@app.middleware("http")
+async def record_http_metrics(request: Request, call_next):
+    start_time = time.perf_counter()
+    status_code = 500
+
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    finally:
+        path = request.scope.get("path", request.url.path)
+        HTTP_REQUESTS_TOTAL.labels(
+            method=request.method,
+            path=path,
+            status=str(status_code),
+        ).inc()
+        HTTP_REQUEST_DURATION_SECONDS.labels(
+            method=request.method,
+            path=path,
+        ).observe(time.perf_counter() - start_time)
 
 # Redis client
 try:
@@ -433,32 +522,40 @@ async def health_check():
         try:
             redis_client.ping()
             checks["redis"] = "connected"
+            REDIS_AVAILABLE.set(1)
         except Exception as e:
             checks["redis"] = f"error: {str(e)}"
             status = "degraded"
+            REDIS_AVAILABLE.set(0)
     else:
         checks["redis"] = "not_available"
         status = "degraded"
+        REDIS_AVAILABLE.set(0)
 
     # Check blockchain
     if blockchain_available:
         try:
             w3.eth.block_number
             checks["blockchain"] = "connected"
+            BLOCKCHAIN_AVAILABLE.set(1)
         except Exception as e:
             checks["blockchain"] = f"error: {str(e)}"
             status = "degraded"
+            BLOCKCHAIN_AVAILABLE.set(0)
     else:
         checks["blockchain"] = "not_available"
         status = "degraded"
+        BLOCKCHAIN_AVAILABLE.set(0)
 
     # Check contract
     contract = get_contract()
     if contract:
         checks["contract"] = "available"
+        CONTRACT_AVAILABLE.set(1)
     else:
         checks["contract"] = "not_available"
         status = "degraded"
+        CONTRACT_AVAILABLE.set(0)
 
     return HealthResponse(
         status=status,
@@ -491,6 +588,17 @@ async def get_system_stats():
         # Get financial stats
         total_rewards = float(redis_client.get("stats:total_rewards") or 0)
         total_slashed = float(redis_client.get("stats:total_slashed") or 0)
+
+        TOTAL_VEHICLES.set(total_vehicles)
+        TOTAL_REWARDS.set(total_rewards)
+        TOTAL_SLASHED.set(total_slashed)
+        for classification, count in {
+            "fraud": fraud_count,
+            "rarity": rare_count,
+            "honest": honest_count,
+            "noise": noise_count,
+        }.items():
+            AUDIT_CLASSIFICATION_TOTAL.labels(classification=classification).set(count)
 
         return SystemStats(
             total_vehicles=total_vehicles,
@@ -770,6 +878,7 @@ async def process_batch_settlement(
             ) from exc
 
         if already_processed:
+            SETTLEMENT_REQUESTS_TOTAL.labels(status="duplicate").inc()
             return {
                 "status": "duplicate",
                 "message": "Settlement batch was already processed on-chain",
@@ -804,6 +913,7 @@ async def process_batch_settlement(
             nonce,
         )
 
+        SETTLEMENT_REQUESTS_TOTAL.labels(status="success").inc()
         return {
             "status": "success",
             "message": "Round settlement batch processed against FLPGAudit",
@@ -828,13 +938,16 @@ async def process_batch_settlement(
 
     except Exception as e:
         logger.error(f"Error processing batch settlement: {e}")
+        SETTLEMENT_REQUESTS_TOTAL.labels(status="error").inc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/metrics")
 async def get_metrics():
     """Prometheus metrics endpoint."""
-    # TODO: Implement prometheus_client metrics
-    return {"message": "Metrics endpoint"}
+    return Response(
+        content=generate_latest(METRICS_REGISTRY),
+        media_type=CONTENT_TYPE_LATEST,
+    )
 
 
 if __name__ == "__main__":

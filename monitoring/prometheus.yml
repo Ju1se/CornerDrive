@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: cornerdrive-services
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - l1-server:8081
+          - l4-dashboard:8082
+          - policy-agent:8080

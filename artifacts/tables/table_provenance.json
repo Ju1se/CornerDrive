@@ -1,6 +1,65 @@
 {
-  "generated_at": "2026-05-16T12:58:22.769888+00:00",
+  "generated_at": "2026-05-25T06:53:31.400732+00:00",
   "script": "scripts/make_paper_tables.py",
+  "strict_required_inputs": true,
+  "runtime": {
+    "python_version": "3.12.13",
+    "platform": "macOS-26.2-arm64-arm-64bit",
+    "git_head": "93bd9d396231a655cabc8db9830507c68629fb04",
+    "git_dirty": true
+  },
+  "dependency_files": {
+    "requirements.txt": {
+      "path": "requirements.txt",
+      "exists": true,
+      "sha256": "73a0819d572d237580943f45166577250044b18710d143bcee546fc9f4954ac8"
+    },
+    "environment.yml": {
+      "path": "environment.yml",
+      "exists": true,
+      "sha256": "1c6239d6d621f38e9f1101e2fbd3728639ea0fcffaaf5f454e908c35a47d4b32"
+    },
+    "frontend/package-lock.json": {
+      "path": "frontend/package-lock.json",
+      "exists": true,
+      "sha256": "60d2800644f20e91d9d45b9e69dcd8d072445811a9563628310b317cc40fed74"
+    },
+    "contracts/package-lock.json": {
+      "path": "contracts/package-lock.json",
+      "exists": true,
+      "sha256": "91ee3cde116e1047c0d3af20df3240697b3d2d7702270acff1a437b975e02999"
+    }
+  },
+  "config_files": {
+    "configs/synthetic_alg.yaml": {
+      "path": "configs/synthetic_alg.yaml",
+      "exists": true,
+      "sha256": "eed6e8f8f7a25c8d760699937deb053498946203902cb4e8812b90320eb1682c"
+    },
+    "configs/stress_tests.yaml": {
+      "path": "configs/stress_tests.yaml",
+      "exists": true,
+      "sha256": "0139b3a460854150e3c7b1c66ae1cd7954c428b3ec22c6c10528dfb091dedfda"
+    },
+    "configs/real_gradient_reliability.yaml": {
+      "path": "configs/real_gradient_reliability.yaml",
+      "exists": true,
+      "sha256": "bbe35e5e0f5b453471e7b0813c8874c0b3cbec637fb38f11172af48f6ff1b1c0"
+    },
+    "configs/real_gradient_calibration_manifest.json": {
+      "path": "configs/real_gradient_calibration_manifest.json",
+      "exists": true,
+      "sha256": "16e858ec0698d064fb26f9e7ef6ab4630d097220e2df77dff155197502bb9757"
+    },
+    "results/expected_results.csv": {
+      "path": "results/expected_results.csv",
+      "exists": true,
+      "sha256": "97f6fd271b93ea6eb9c5417accad753c33df6280fe88c88b4f84112a95a19d7f"
+    }
+  },
+  "allow_missing_real": false,
+  "allow_missing_synthetic": false,
+  "allow_missing_appendix": false,
   "real_gradient_config": {
     "summary_json": "results/real_gradient_reliability_calibrated_holdout/real_gradient_reliability_summary.json",
     "sources": [
@@ -60,33 +119,52 @@
   "inputs": {
     "real_gradient_summary": {
       "path": "results/real_gradient_reliability_calibrated_holdout/real_gradient_reliability_summary.csv",
-      "sha256": "39740cff22d17b5081dc4c4cc8590f50dfd7881d9f4720fde4fe3354b41e71c1",
-      "exists": true
+      "sha256": "a617d2df88a8f49f4f5feadff4f8ac4afeec5b43b6ba1d7fffd0dc44808bd669",
+      "exists": true,
+      "section": "real",
+      "required": true
+    },
+    "real_gradient_summary_json": {
+      "path": "results/real_gradient_reliability_calibrated_holdout/real_gradient_reliability_summary.json",
+      "sha256": "95d5234344a3a6d9a0d291f84ce781b927f381564a41bbf7f6772499cae9df47",
+      "exists": true,
+      "section": "real",
+      "required": true
     },
     "synthetic_alg_main_result_table": {
       "path": "results/audit_reproduction/synthetic_alg_benchmark_b24/synthetic_alg_main_result_table.csv",
-      "sha256": "fb8571d709a96e18a915323a66b517e64be3bd1d235719b8ad42e5f174da14d9",
-      "exists": true
+      "sha256": "525cd22bf5e7e6ab0743364e7bb4e6e0cb5b19c8ef6ab4e64c21e09c33f90edf",
+      "exists": true,
+      "section": "synthetic",
+      "required": true
     },
     "stress_rarity_overlap": {
       "path": "results/audit_reproduction/synthetic_stress_tests_b24/stress_rarity_overlap_summary.csv",
-      "sha256": "b41242629dbeb8aaab050657b282b231c1c11bacbfc843ac25115178c77d7846",
-      "exists": true
+      "sha256": "b019065ea13b5d690b3814e019e211a48538fafa7c5d57818d6fdf359d97feec",
+      "exists": true,
+      "section": "appendix",
+      "required": true
     },
     "stress_proxy_sensitivity": {
       "path": "results/audit_reproduction/synthetic_stress_tests_b24/stress_proxy_sensitivity_summary.csv",
-      "sha256": "7d026a8edd8cfbf0806ba3e93ca35e861e626237005e4579862b32ab1b84fef4",
-      "exists": true
+      "sha256": "36b7aa4774e0423285e783e816d462f5ac62b8deda4aa5fc90725aeb394aa38d",
+      "exists": true,
+      "section": "appendix",
+      "required": true
     },
     "corner_family_divergence": {
       "path": "results/audit_reproduction/corner_family_divergence_b24/corner_family_divergence_summary.csv",
-      "sha256": "415a4c2db6b3f91f384a9e2da5e6205044c2e5e0cb37dbcf8cd466dca785c1d1",
-      "exists": true
+      "sha256": "880dd764c85486755f438d6845989361b788af70e81cd789467b84c06f6c32b1",
+      "exists": true,
+      "section": "appendix",
+      "required": true
     },
     "corner_harm_threshold_calibration": {
       "path": "results/audit_reproduction/corner_harm_threshold_calibration_b24/corner_harm_threshold_calibration_summary.csv",
-      "sha256": "1d62a6b56f881ee0243cad6b70886d55a25dafa722e6911fb50e9ecb16567ca9",
-      "exists": true
+      "sha256": "0809be0c40f0993268af070f1cc9b0da68d0dda49141ed51688cf3461f0ea0b0",
+      "exists": true,
+      "section": "appendix",
+      "required": true
     }
   },
   "outputs": [
