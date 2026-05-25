@@ -12,6 +12,17 @@ method combines:
 This repository is intended to let a reader clone the project, install the
 environment, run the documented commands, and regenerate the main thesis tables.
 
+## Thesis
+
+The submitted dissertation PDF is tracked with the reproduction package:
+
+| Document | Link |
+|---|---|
+| CornerDrive dissertation | [SAT301_FYP_Dissertation_CornerDrive.pdf](docs/thesis/SAT301_FYP_Dissertation_CornerDrive.pdf) |
+| Thesis document index | [docs/thesis/README.md](docs/thesis/README.md) |
+
+The PDF hash and citation note are recorded in `docs/thesis/README.md`.
+
 ## What Can Be Reproduced
 
 | Thesis item | Reproduction output |
@@ -242,7 +253,7 @@ Outputs are written to `artifacts/tables/`.
 | `results` | generated experiment outputs; mostly ignored |
 | `artifacts/tables` | regenerated thesis and appendix CSV tables |
 | `scripts` | data prep, reproduction, exporters, and table builders; see `scripts/README.md` |
-| `docs` | architecture, formulas, reports, and benchmark notes |
+| `docs` | thesis PDF, architecture, formulas, reports, and benchmark notes |
 | `contracts` | Solidity settlement/policy commitment sources |
 | `frontend` | React dashboard for the full FLPG demo |
 
@@ -295,7 +306,8 @@ and operating-curve scripts. See:
 
 ## Citation
 
-See `CITATION.cff`.
+See `CITATION.cff` and the thesis PDF at
+`docs/thesis/SAT301_FYP_Dissertation_CornerDrive.pdf`.
 
 ## License
 

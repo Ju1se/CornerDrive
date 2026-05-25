@@ -7,6 +7,8 @@ Use the root `README.md` for quick onboarding. Use the documents here for archit
 ## Start Here
 
 - [Project README](../README.md) - quick start, repository map, and primary navigation
+- [Thesis PDF](thesis/SAT301_FYP_Dissertation_CornerDrive.pdf) - submitted dissertation
+- [Thesis Index](thesis/README.md) - dissertation metadata and related revision notes
 - [Implementation Guide](implementation/IMPLEMENTATION.md) - what is currently implemented and how to run it locally
 - [Ports and APIs](api/PORTS_AND_APIS.md) - canonical service ports and endpoint paths
 - [Scripts Index](../scripts/README.md) - canonical, diagnostic, and legacy command-line entry points
@@ -39,6 +41,13 @@ Use the root `README.md` for quick onboarding. Use the documents here for archit
 ## Math and Theory
 
 - [Mathematical Formulas](formulas/MATHEMATICAL_FORMULAS.md)
+
+## Thesis
+
+- [Submitted Dissertation PDF](thesis/SAT301_FYP_Dissertation_CornerDrive.pdf)
+- [Thesis Document Index](thesis/README.md)
+- [Real-Gradient Thesis Revision Plan](thesis/REAL_GRADIENT_THESIS_REVISION_PLAN.md)
+- [Revised Thesis Audit](thesis/REVISED_THESIS_AUDIT.md)
 
 ## Reports
 
