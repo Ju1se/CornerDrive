@@ -21,3 +21,10 @@ data, and final evaluation data separate.
 CornerDrive profile, the calibration seed range, and the final held-out seed
 range. The two seed sets are intentionally disjoint so threshold selection can
 be audited separately from final reporting.
+
+`cifar10_dual_dataset.yaml` records the CIFAR-10 dual-dataset rarity benchmark:
+the golden-dataset annotation, the client federation, both model back-ends and
+the method list. `cifar10_dual_dataset_policy_r50head.json` is the CornerDrive
+operating point frozen on development seeds 20261101-20261102 by
+`scripts/calibrate_cifar10_dual_dataset.py`; the confirmatory seeds
+20261110-20261114 use it unchanged.

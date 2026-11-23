@@ -1,0 +1,77 @@
+{
+  "dataset": "CIFAR-10 (official train + test pooled, 60,000 images)",
+  "annotation_seed": 20261123,
+  "golden_fraction": 0.25,
+  "rare_labels": {
+    "1": "automobile",
+    "7": "horse",
+    "9": "truck"
+  },
+  "normal_labels": {
+    "0": "airplane",
+    "2": "bird",
+    "3": "cat",
+    "4": "deer",
+    "5": "dog",
+    "6": "frog",
+    "8": "ship"
+  },
+  "rule": "Stratified by class. A quarter of every class is annotated as the golden dataset: images of a rare class are tagged 'rare' (D_corner), all others 'normal' (D_main). The other three quarters are left unannotated and used for testing: client shards that produce the updates under test, and a held-out evaluation set.",
+  "counts": {
+    "golden_total": 15000,
+    "golden_normal (D_main)": 10500,
+    "golden_rare (D_corner)": 4500,
+    "test_total": 45000,
+    "test_client_pool": 40000,
+    "test_eval_normal": 3500,
+    "test_eval_rare": 1500
+  },
+  "per_class": {
+    "golden_normal": {
+      "airplane": 1500,
+      "bird": 1500,
+      "cat": 1500,
+      "deer": 1500,
+      "dog": 1500,
+      "frog": 1500,
+      "ship": 1500
+    },
+    "golden_rare": {
+      "automobile": 1500,
+      "horse": 1500,
+      "truck": 1500
+    },
+    "client_pool": {
+      "airplane": 4000,
+      "automobile": 4000,
+      "bird": 4000,
+      "cat": 4000,
+      "deer": 4000,
+      "dog": 4000,
+      "frog": 4000,
+      "horse": 4000,
+      "ship": 4000,
+      "truck": 4000
+    },
+    "eval": {
+      "airplane": 500,
+      "automobile": 500,
+      "bird": 500,
+      "cat": 500,
+      "deer": 500,
+      "dog": 500,
+      "frog": 500,
+      "horse": 500,
+      "ship": 500,
+      "truck": 500
+    }
+  },
+  "source_md5": {
+    "data_batch_1": "c99cafc152244af753f735de768cd75f",
+    "data_batch_2": "d4bba439e000b95fd0a9bffe97cbabec",
+    "data_batch_3": "54ebc095f3ab1f0389bbae665268c751",
+    "data_batch_4": "634d18415352ddfa80567beed471001a",
+    "data_batch_5": "482c414d41f54cd18b22e5b47cb7c3cb",
+    "test_batch": "40351d587109b95175f43aff81a1287e"
+  }
+}

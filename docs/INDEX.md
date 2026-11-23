@@ -37,6 +37,7 @@ Use the root `README.md` for quick onboarding. Use the documents here for archit
 - [Real-Gradient Calibration Split](benchmarks/REAL_GRADIENT_CALIBRATION_SPLIT.md)
 - [Real-Gradient FL Learning Curve](benchmarks/REAL_GRADIENT_FL_LEARNING_CURVE.md)
 - [Synthetic-Real Gradient Calibration](benchmarks/SYNTHETIC_REAL_GRADIENT_CALIBRATION.md)
+- [CIFAR-10 Dual-Dataset Rarity Benchmark](benchmarks/CIFAR10_DUAL_DATASET_BENCHMARK.md) - golden-dataset annotation, FedVal baseline, embedding model in the loop
 
 ## Math and Theory
 

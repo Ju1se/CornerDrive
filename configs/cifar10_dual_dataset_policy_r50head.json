@@ -1,0 +1,203 @@
+{
+  "model": "r50head",
+  "calibrated_on": {
+    "folder": "results/cifar10_dual_dataset/devr50",
+    "seeds": [
+      20261101,
+      20261102
+    ],
+    "trajectory": "oracle",
+    "updates": 4000,
+    "honest_updates": 2377
+  },
+  "rules": {
+    "drift": "relative (dL / L(W))",
+    "replica_step": "argmax over steps of the minimum of three development AUROCs",
+    "theta_tol": "99th percentile of honest drift on the normal set",
+    "theta_corner_harm": "99th percentile of honest drift on the rare set",
+    "theta_rare": "1st percentile of honest drift on the rare set, below zero",
+    "theta_util": "any measurable improvement on either golden set",
+    "routing": "95th percentile of each L1 signal over honest updates; recheck probability 0.25"
+  },
+  "replica_step_table": {
+    "1": {
+      "rarity_vs_honest": 0.9716258989923272,
+      "main_hostile_vs_benign": 0.9990582576448991,
+      "corner_harm_vs_benign": 1.0
+    },
+    "0.5": {
+      "rarity_vs_honest": 0.9928351062764189,
+      "main_hostile_vs_benign": 0.9972170218681388,
+      "corner_harm_vs_benign": 1.0
+    },
+    "0.25": {
+      "rarity_vs_honest": 0.9972434240839794,
+      "main_hostile_vs_benign": 0.9885573533814366,
+      "corner_harm_vs_benign": 1.0
+    }
+  },
+  "policies": {
+    "loss": {
+      "routing": {
+        "tau_cos": 0.9264350175857543,
+        "tau_norm_mad": 2.054724884033203,
+        "tau_sign": 0.4458929419517517,
+        "p_recheck": 0.25,
+        "exhaustive": false
+      },
+      "verdict": {
+        "theta_tol": 0.129495131507836,
+        "theta_rare": -0.02000287547764881,
+        "theta_corner_harm": 0.13216247406353468,
+        "theta_util": 1e-06,
+        "mode": "dual"
+      },
+      "audit_step": 0.5,
+      "drift_mode": "relative",
+      "space": "loss"
+    },
+    "embedding": {
+      "routing": {
+        "tau_cos": 0.9264350175857543,
+        "tau_norm_mad": 2.054724884033203,
+        "tau_sign": 0.4458929419517517,
+        "p_recheck": 0.25,
+        "exhaustive": false
+      },
+      "verdict": {
+        "theta_tol": 0.03923903205803561,
+        "theta_rare": -0.015293468644902237,
+        "theta_corner_harm": 0.05390950240598832,
+        "theta_util": 1e-06,
+        "mode": "dual"
+      },
+      "audit_step": 1.0,
+      "drift_mode": "relative",
+      "space": "embedding"
+    }
+  },
+  "development_check": {
+    "loss": {
+      "rarity": {
+        "rarity_total": 420,
+        "said_rarity": 462,
+        "recognition": 0.9809523809523809,
+        "precision": 0.8917748917748918,
+        "fraud_named_rarity": 24,
+        "corner_harm_named_rarity": 0,
+        "honest_named_rarity": 24
+      },
+      "confusion": {
+        "honest": {
+          "FRAUD": 48,
+          "RARITY": 24,
+          "HONEST": 2305,
+          "NOISE": 0,
+          "UNAUDITED": 0,
+          "total": 2377
+        },
+        "rarity": {
+          "FRAUD": 0,
+          "RARITY": 412,
+          "HONEST": 8,
+          "NOISE": 0,
+          "UNAUDITED": 0,
+          "total": 420
+        },
+        "noise": {
+          "FRAUD": 0,
+          "RARITY": 2,
+          "HONEST": 219,
+          "NOISE": 0,
+          "UNAUDITED": 0,
+          "total": 221
+        },
+        "sign_flip": {
+          "FRAUD": 363,
+          "RARITY": 24,
+          "HONEST": 7,
+          "NOISE": 0,
+          "UNAUDITED": 0,
+          "total": 394
+        },
+        "label_flip": {
+          "FRAUD": 393,
+          "RARITY": 0,
+          "HONEST": 0,
+          "NOISE": 0,
+          "UNAUDITED": 0,
+          "total": 393
+        },
+        "corner_harm": {
+          "FRAUD": 195,
+          "RARITY": 0,
+          "HONEST": 0,
+          "NOISE": 0,
+          "UNAUDITED": 0,
+          "total": 195
+        }
+      }
+    },
+    "embedding": {
+      "rarity": {
+        "rarity_total": 420,
+        "said_rarity": 376,
+        "recognition": 0.830952380952381,
+        "precision": 0.9281914893617021,
+        "fraud_named_rarity": 0,
+        "corner_harm_named_rarity": 0,
+        "honest_named_rarity": 24
+      },
+      "confusion": {
+        "honest": {
+          "FRAUD": 47,
+          "RARITY": 24,
+          "HONEST": 2306,
+          "NOISE": 0,
+          "UNAUDITED": 0,
+          "total": 2377
+        },
+        "rarity": {
+          "FRAUD": 47,
+          "RARITY": 349,
+          "HONEST": 24,
+          "NOISE": 0,
+          "UNAUDITED": 0,
+          "total": 420
+        },
+        "noise": {
+          "FRAUD": 4,
+          "RARITY": 3,
+          "HONEST": 214,
+          "NOISE": 0,
+          "UNAUDITED": 0,
+          "total": 221
+        },
+        "sign_flip": {
+          "FRAUD": 392,
+          "RARITY": 0,
+          "HONEST": 2,
+          "NOISE": 0,
+          "UNAUDITED": 0,
+          "total": 394
+        },
+        "label_flip": {
+          "FRAUD": 393,
+          "RARITY": 0,
+          "HONEST": 0,
+          "NOISE": 0,
+          "UNAUDITED": 0,
+          "total": 393
+        },
+        "corner_harm": {
+          "FRAUD": 195,
+          "RARITY": 0,
+          "HONEST": 0,
+          "NOISE": 0,
+          "UNAUDITED": 0,
+          "total": 195
+        }
+      }
+    }
+  }
+}

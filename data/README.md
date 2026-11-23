@@ -66,3 +66,34 @@ For MNIST/FashionMNIST, `D_corner` is built from rare label groups configured in
 the benchmark code. For FEMNIST, `D_corner` is derived from corner-heavy held-out
 client label distributions. The thesis real-gradient configuration is mirrored
 in `configs/real_gradient_reliability.yaml`.
+
+## CIFAR-10 Golden Dataset
+
+The dual-dataset rarity benchmark expects the python-version CIFAR-10 batches
+under `data/real/cifar-10-batches-py/` (md5-checked against the official
+values before they are read). One quarter of the 60,000 images is annotated as
+the server's golden dataset; the other three quarters are never annotated and
+are used for testing:
+
+```bash
+python scripts/annotate_cifar10_golden.py
+```
+
+This writes `data/validation/golden/cifar10/`:
+
+| File | Content |
+|---|---|
+| `manifest.csv` | one row per image: `partition` (`golden` / `test`), `golden_label` (`normal` / `rare`), `test_role` (`client_pool` / `eval`) |
+| `summary.json` | rule, seed, counts per class, source md5 |
+| `golden_preview.png` | contact sheet of the two golden sets |
+
+| Surface | Images | Role |
+|---|---:|---|
+| golden, normal (`D_main`) | 10,500 | 1,500 of each of airplane, bird, cat, deer, dog, frog, ship |
+| golden, rare (`D_corner`) | 4,500 | 1,500 of each of automobile, horse, truck |
+| test, client pool | 40,000 | client shards that produce the updates under test |
+| test, evaluation | 5,000 | held-out accuracy read-out |
+
+The embedding model used by the `r50head` back-end is extracted with
+`python scripts/extract_cifar10_embeddings.py` into
+`data/real/cifar10_resnet50_embeddings.npy` (not tracked).

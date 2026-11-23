@@ -1,0 +1,91 @@
+experiment: cifar10_dual_dataset
+description: >
+  CIFAR-10 dual-dataset rarity benchmark. A quarter of CIFAR-10 is annotated as
+  the server's golden dataset (normal set D_main, rare set D_corner); the other
+  three quarters build the client federation and the held-out evaluation set.
+  Every sampled client update is judged by its loss drift on the two golden
+  sets. See docs/benchmarks/CIFAR10_DUAL_DATASET_BENCHMARK.md.
+
+golden_annotation:
+  script: scripts/annotate_cifar10_golden.py
+  output: data/validation/golden/cifar10/
+  source: CIFAR-10 official train + test pooled (60,000 images, md5-checked)
+  seed: 20261123
+  golden_fraction: 0.25           # 1,500 images per class
+  rare_labels: [1, 7, 9]          # automobile, horse, truck -> D_corner (4,500)
+  normal_labels: [0, 2, 3, 4, 5, 6, 8]   # -> D_main (10,500)
+  test_three_quarters:
+    client_pool_per_class: 4000   # 40,000 images, never annotated
+    eval_per_class: 500           # 5,000 images, accuracy read-out only
+
+federation:
+  clients: 120
+  clients_per_round: 20
+  samples_per_client: 224
+  roles:                          # thesis Table A.1 mix
+    honest: 72
+    rarity: 12                    # rare-rich honest, 60% rare images
+    corner_harm: 6                # rare-rich, rare labels flipped to normal classes
+    sign_flip: 12                 # update multiplied by -3
+    label_flip: 12                # every label y -> 9 - y
+    noise: 6                      # Gaussian noise of twice the update norm
+  rare_share_rare_rich: 0.60
+  rare_share_other: 0.02
+  dirichlet_alpha_normal: 0.5
+  dirichlet_alpha_rare: 1.0
+  rarity_truth: "honest shard with at least 30% rare-class images"
+  scenarios: [mixed, no_attack]
+
+models:
+  r50head:                        # primary
+    encoder: "torchvision ResNet-50, IMAGENET1K_V2, frozen (scripts/extract_cifar10_embeddings.py)"
+    federated_part: "MLP head 2048 -> 128 -> 10 on standardised embeddings"
+    local_lr: 0.03                # grid 0.003, 0.01, 0.03, 0.1 on a development seed
+    warmup_rounds: 5
+    rounds: 100
+  cnn:                            # development-seed diagnostic only
+    architecture: "conv32-conv64-conv128 with GroupNorm, trained from scratch"
+    local_lr: 0.05
+    warmup_rounds: 20
+    rounds: 100
+
+training:
+  local_epochs: 2
+  batch_size: 32
+  server_step: 1.0
+  golden_draw_per_round: "100 images per class (700 normal + 300 rare), redrawn every round"
+  byzantine_budget: 5             # Multi-Krum f and Zeno b
+
+methods:
+  - oracle
+  - fedavg
+  - geomed
+  - krum
+  - fltrust
+  - zeno
+  - zenopp
+  - fedval                        # formula (6): s1 3, s1_avg 5, C 3, adaptive s2 from 3
+  - cornerdrive                   # L1 multi-signal routing + L2 dual verdict
+  - cd_exhaustive                 # every update audited
+  - cd_main_only                  # ablation
+  - cd_corner_only                # ablation
+  - cd_embedding                  # dual verdict on the model's own embedding
+
+calibration:
+  script: scripts/calibrate_cifar10_dual_dataset.py
+  development_seeds: [20261101, 20261102]
+  frozen_policy: configs/cifar10_dual_dataset_policy_r50head.json
+  rule: >
+    Thresholds are percentiles of the drift of honest development updates on
+    the oracle trajectory (theta_tol and theta_corner_harm: 99th; theta_rare:
+    1st; L1 signals: 95th). The replica step is the value in {1, 0.5, 0.25}
+    with the best worst-case AUROC on the development updates.
+
+confirmation:
+  seeds: [20261110, 20261111, 20261112, 20261113, 20261114]
+  stage: results/cifar10_dual_dataset/confirm_r50
+  stress_tests:
+    stress_weak: "--rare-rich-share 0.35"
+    stress_partial: "--corner-proxy partial"
+    stress_random: "--corner-proxy random_main"
+    stress_small: "--audit-per-class 10"

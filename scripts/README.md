@@ -40,6 +40,21 @@ top-level sections before running individual exporters directly.
 | `export_synthetic_real_gradient_calibration.py` | Diagnostic | Scalar comparison between synthetic ALG and real client gradients. |
 | `export_reputation_accumulation_simulation.py` | Design validation | L4 reputation accumulation simulation table. |
 
+## CIFAR-10 Dual-Dataset Rarity Benchmark
+
+A self-contained GPU benchmark (`backend/dual_dataset_benchmark/`, torch and numpy only).
+Design and results: `docs/benchmarks/CIFAR10_DUAL_DATASET_BENCHMARK.md`.
+
+| Script | Purpose |
+| --- | --- |
+| `annotate_cifar10_golden.py` | Annotate a quarter of CIFAR-10 as the golden dataset (normal set and rare set); the rest stays unannotated for testing. |
+| `extract_cifar10_embeddings.py` | Embed all images with a frozen ImageNet ResNet-50 (downloads the torchvision weights on first use). |
+| `run_cifar10_dual_dataset.py` | Resumable launcher: one unit per (seed, scenario, method). |
+| `calibrate_cifar10_dual_dataset.py` | Freeze the CornerDrive thresholds from development seeds. |
+| `analyze_cifar10_dual_dataset.py` | Method comparison, rarity discovery, confusion, routing and detector tables. |
+| `plot_cifar10_dual_dataset_plane.py` | SVG of the verdict plane, one panel per update type. |
+| `audit_cifar10_dual_dataset_leakage.py` | Leakage audit: disjoint surfaces, identical and near-duplicate images across surfaces, clean client shards. |
+
 ## Shared Helpers
 
 | Script | Role |
