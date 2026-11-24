@@ -1,0 +1,81 @@
+{
+  "surfaces_disjoint_and_complete": true,
+  "byte_identical_images": {
+    "groups_within_dataset": 0,
+    "groups_crossing_surfaces": 0
+  },
+  "near_duplicates": {
+    "eval_vs_client_pool": {
+      "images": 5000,
+      "median_best_similarity": 0.8023220896720886,
+      "best_similarity_at_least_0.9": 265,
+      "best_similarity_at_least_0.95": 40,
+      "best_similarity_at_least_0.98": 3,
+      "share_at_least_0.9": 0.053,
+      "share_at_least_0.95": 0.008,
+      "share_at_least_0.98": 0.0006,
+      "same_label_among_at_least_0.95": 1.0,
+      "share_by_class_at_least_0.9": {
+        "airplane": 0.08,
+        "automobile": 0.098,
+        "bird": 0.038,
+        "cat": 0.016,
+        "deer": 0.032,
+        "dog": 0.028,
+        "frog": 0.048,
+        "horse": 0.078,
+        "ship": 0.042,
+        "truck": 0.07
+      }
+    },
+    "golden_vs_client_pool": {
+      "images": 15000,
+      "median_best_similarity": 0.8022364377975464,
+      "best_similarity_at_least_0.9": 751,
+      "best_similarity_at_least_0.95": 114,
+      "best_similarity_at_least_0.98": 2,
+      "share_at_least_0.9": 0.05006666666666667,
+      "share_at_least_0.95": 0.0076,
+      "share_at_least_0.98": 0.00013333333333333334,
+      "same_label_among_at_least_0.95": 1.0,
+      "share_by_class_at_least_0.9": {
+        "airplane": 0.07066666666666667,
+        "automobile": 0.07266666666666667,
+        "bird": 0.03133333333333333,
+        "cat": 0.016,
+        "deer": 0.04533333333333334,
+        "dog": 0.03933333333333333,
+        "frog": 0.05,
+        "horse": 0.06,
+        "ship": 0.046,
+        "truck": 0.06933333333333333
+      }
+    },
+    "eval_vs_golden": {
+      "images": 5000,
+      "median_best_similarity": 0.7876261472702026,
+      "best_similarity_at_least_0.9": 147,
+      "best_similarity_at_least_0.95": 23,
+      "best_similarity_at_least_0.98": 0,
+      "share_at_least_0.9": 0.0294,
+      "share_at_least_0.95": 0.0046,
+      "share_at_least_0.98": 0.0,
+      "same_label_among_at_least_0.95": 1.0,
+      "share_by_class_at_least_0.9": {
+        "airplane": 0.034,
+        "automobile": 0.058,
+        "bird": 0.014,
+        "cat": 0.008,
+        "deer": 0.022,
+        "dog": 0.026,
+        "frog": 0.022,
+        "horse": 0.048,
+        "ship": 0.024,
+        "truck": 0.038
+      }
+    }
+  },
+  "client_shards_clean": true,
+  "dev_and_confirm_seeds_disjoint": true,
+  "note": "The golden quarter, the client-pool images and the evaluation images are the same for every seed; a seed changes the client shards, the roles, the initial weights and the sampling."
+}

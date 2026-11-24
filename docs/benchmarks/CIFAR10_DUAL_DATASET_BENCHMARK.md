@@ -14,6 +14,8 @@ rare-beneficial updates among suspicious ones without keeping harmful ones?
 Code: `backend/dual_dataset_benchmark/` (torch and numpy only).
 Parameters: `configs/cifar10_dual_dataset.yaml`.
 Frozen operating point: `configs/cifar10_dual_dataset_policy_r50head.json`.
+Raw results: `results/cifar10_dual_dataset/`, one `.npz` per seed, scenario and
+method (layout in `results/README.md`).
 
 ## What changed against the thesis real-gradient benchmark
 

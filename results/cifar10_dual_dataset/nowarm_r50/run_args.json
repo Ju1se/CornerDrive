@@ -1,0 +1,98 @@
+{
+  "args": {
+    "stage": "nowarm_r50",
+    "out_dir": "",
+    "cifar_dir": "data/real/cifar-10-batches-py",
+    "model": "r50head",
+    "embeddings": "data/real/cifar10_resnet50_embeddings.npy",
+    "seeds": "20261110,20261111,20261112,20261113,20261114",
+    "scenarios": "mixed",
+    "methods": "oracle,krum,zeno,fedval,cornerdrive,cd_exhaustive",
+    "policy": "configs/cifar10_dual_dataset_policy_r50head.json",
+    "rounds": 100,
+    "warmup_rounds": 0,
+    "local_lr": 0.03,
+    "local_epochs": 2,
+    "audit_per_class": 100,
+    "extra_audit_steps": "",
+    "rare_rich_share": 0.6,
+    "corner_proxy": "rare",
+    "log_all_scores": false,
+    "tag": "",
+    "device": "cuda"
+  },
+  "engine": {
+    "rounds": 100,
+    "warmup_rounds": 0,
+    "clients_per_round": 20,
+    "local_epochs": 2,
+    "batch_size": 32,
+    "local_lr": 0.03,
+    "audit_per_class": 100,
+    "byzantine_budget": 5,
+    "sign_flip_scale": 3.0,
+    "noise_ratio": 2.0,
+    "zeno_rho": 0.0001,
+    "fedval_s1": 3.0,
+    "fedval_s1_avg": 5.0,
+    "fedval_c": 3.0,
+    "fedval_s2_init": 3.0,
+    "extra_audit_steps": [],
+    "corner_proxy": "rare"
+  },
+  "federation": {
+    "num_clients": 120,
+    "samples_per_client": 224,
+    "n_rarity": 12,
+    "n_corner_harm": 6,
+    "n_sign_flip": 12,
+    "n_label_flip": 12,
+    "n_noise": 6,
+    "rare_rich_share": 0.6,
+    "ordinary_rare_share": 0.02,
+    "dirichlet_alpha_normal": 0.5,
+    "dirichlet_alpha_rare": 1.0,
+    "rarity_truth_threshold": 0.3,
+    "scenario": "mixed"
+  },
+  "policies": {
+    "loss": {
+      "routing": {
+        "tau_cos": 0.9264350175857543,
+        "tau_norm_mad": 2.054724884033203,
+        "tau_sign": 0.4458929419517517,
+        "p_recheck": 0.25,
+        "exhaustive": false
+      },
+      "verdict": {
+        "theta_tol": 0.129495131507836,
+        "theta_rare": -0.02000287547764881,
+        "theta_corner_harm": 0.13216247406353468,
+        "theta_util": 1e-06,
+        "mode": "dual"
+      },
+      "audit_step": 0.5,
+      "drift_mode": "relative",
+      "space": "loss"
+    },
+    "embedding": {
+      "routing": {
+        "tau_cos": 0.9264350175857543,
+        "tau_norm_mad": 2.054724884033203,
+        "tau_sign": 0.4458929419517517,
+        "p_recheck": 0.25,
+        "exhaustive": false
+      },
+      "verdict": {
+        "theta_tol": 0.03923903205803561,
+        "theta_rare": -0.015293468644902237,
+        "theta_corner_harm": 0.05390950240598832,
+        "theta_util": 1e-06,
+        "mode": "dual"
+      },
+      "audit_step": 1.0,
+      "drift_mode": "relative",
+      "space": "embedding"
+    }
+  }
+}

@@ -48,6 +48,12 @@ results/*
 !results/expected_results.csv
 !results/expected_outputs/
 !results/expected_outputs/**
+# CIFAR-10 dual-dataset benchmark: unit files, run arguments and reports are
+# tracked; warm-up checkpoints are caches the launcher rebuilds in seconds.
+!results/cifar10_dual_dataset/
+!results/cifar10_dual_dataset/**
+results/cifar10_dual_dataset/**/warmup_*.pt
+results/cifar10_dual_dataset/logs/
 logs/
 backend/logs/
 runtime_state/
